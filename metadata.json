@@ -1,0 +1,5 @@
+{
+  "name": "eva.watch",
+  "description": "On-chain intelligence and real-time audit for the EverValue (EVA) protocol.",
+  "requestFramePermissions": []
+}
