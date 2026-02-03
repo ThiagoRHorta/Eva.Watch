@@ -9,7 +9,7 @@ Este projeto foi reestruturado para rodar **gratuitamente** no GitHub Pages.
 3. Em **Source**, selecione:
    - **Deploy from a branch**
    - Branch: `development`
-   - Folder: `/ (root)`
+   - Folder: `/docs`
 4. Clique em **Save**
 
 O site será publicado em: `https://ThiagoRHorta.github.io/Eva-s-Audit/`
@@ -31,8 +31,8 @@ pnpm install
 # Rodar servidor de desenvolvimento
 pnpm dev
 
-# Fazer build para produção
-GITHUB_PAGES=true pnpm build
+# Fazer build para produção (gera a pasta docs para o GitHub Pages)
+pnpm build:pages
 
 # Visualizar build localmente
 pnpm preview
@@ -58,10 +58,10 @@ Após ativar GitHub Pages, o site estará disponível em:
 O arquivo `vite.config.ts` detecta automaticamente quando está rodando no GitHub Pages:
 
 ```typescript
-base: process.env.GITHUB_PAGES ? '/Eva-s-Audit/' : '/',
+base: process.env.GITHUB_PAGES ? "./" : "/",
 ```
 
-Isso garante que todos os assets e rotas funcionem corretamente no subdiretório `/Eva-s-Audit/`.
+Isso garante que todos os assets e rotas funcionem corretamente mesmo quando o projeto é publicado em um subdiretório (como o GitHub Pages).
 
 ## 📝 Notas
 
