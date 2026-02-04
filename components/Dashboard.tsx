@@ -110,9 +110,10 @@ const Dashboard: React.FC = () => {
               <span className="hidden sm:inline">Calculator</span>
             </button>
             <div className="h-8 w-px bg-slate-800 hidden md:block"></div>
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 text-xs font-bold uppercase tracking-widest">
-              <ArrowPathIcon className="w-4 h-4" />
-              {secondsToRefresh}s
+            <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 text-sm font-black">
+              <ArrowPathIcon className="w-5 h-5" />
+              <span className="tabular-nums min-w-[2ch] text-right">{secondsToRefresh}</span>
+              <span className="text-sm font-black">s</span>
             </div>
           </div>
         </nav>
