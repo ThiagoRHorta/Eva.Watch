@@ -6,7 +6,10 @@ Este projeto foi reestruturado para rodar **gratuitamente** no GitHub Pages.
 
 1. Vá para **Settings** do repositório
 2. Navegue até **Pages** (no menu lateral esquerdo)
-3. Em **Source**, selecione **GitHub Actions**
+3. Em **Source**, selecione:
+   - **Deploy from a branch**
+   - Branch: `development`
+   - Folder: `/docs`
 4. Clique em **Save**
 
 O site será publicado em: `https://ThiagoRHorta.github.io/Eva-s-Audit/`
@@ -59,14 +62,6 @@ base: process.env.GITHUB_PAGES ? "./" : "/",
 ```
 
 Isso garante que todos os assets e rotas funcionem corretamente mesmo quando o projeto é publicado em um subdiretório (como o GitHub Pages).
-
-## 🤖 Deploy automatizado
-
-O workflow em `.github/workflows/deploy-pages.yml` faz:
-
-1. Instala dependências com pnpm
-2. Executa `pnpm build:pages`
-3. Publica o conteúdo de `/docs` no GitHub Pages
 
 ## 📝 Notas
 

@@ -5,7 +5,8 @@
     "components/**/*",
     "services/**/*",
     "shared/**/*",
-    "server/**/*"
+    "server/**/*",
+    "client/src/**/*"
   ],
   "exclude": ["node_modules", "build", "dist", "**/*.test.ts"],
   "compilerOptions": {
