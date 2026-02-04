@@ -25,6 +25,7 @@ const Dashboard: React.FC = () => {
   const [loadingState, setLoadingState] = useState<LoadingState>(LoadingState.LOADING);
   const [data, setData] = useState<DashboardData | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [secondsToRefresh, setSecondsToRefresh] = useState(60);
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
   
   const currentMonthName = new Date().toLocaleString('en-US', { month: 'long' });
@@ -32,6 +33,7 @@ const Dashboard: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoadingState(LoadingState.LOADING);
+      setSecondsToRefresh(60);
       const result = await fetchDashboardData();
       setData(result);
       setLastUpdated(new Date());
@@ -44,8 +46,14 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 60000); // Background refresh every 1 minute
-    return () => clearInterval(interval);
+    const refreshInterval = setInterval(fetchData, 60000); // Background refresh every 1 minute
+    const countdownInterval = setInterval(() => {
+      setSecondsToRefresh((prev) => (prev <= 1 ? 60 : prev - 1));
+    }, 1000);
+    return () => {
+      clearInterval(refreshInterval);
+      clearInterval(countdownInterval);
+    };
   }, []);
 
   const fmtCurrency = (val: number, decimals = 2) => {
@@ -102,13 +110,11 @@ const Dashboard: React.FC = () => {
               <span className="hidden sm:inline">Calculator</span>
             </button>
             <div className="h-8 w-px bg-slate-800 hidden md:block"></div>
-            <button 
-              onClick={fetchData}
-              disabled={loadingState === LoadingState.LOADING}
-              className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition-all active:scale-95"
-            >
-              <ArrowPathIcon className={`w-5 h-5 ${loadingState === LoadingState.LOADING ? 'animate-spin' : ''}`} />
-            </button>
+            <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 text-sm font-black">
+              <ArrowPathIcon className="w-5 h-5" />
+              <span className="tabular-nums min-w-[2ch] text-right">{secondsToRefresh}</span>
+              <span className="text-sm font-black">s</span>
+            </div>
           </div>
         </nav>
 
