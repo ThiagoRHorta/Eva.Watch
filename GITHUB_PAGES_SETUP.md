@@ -8,7 +8,7 @@ Este projeto foi reestruturado para rodar **gratuitamente** no GitHub Pages.
 2. Navegue até **Pages** (no menu lateral esquerdo)
 3. Em **Source**, selecione:
    - **Deploy from a branch**
-   - Branch: `development`
+   - Branch: `main`
    - Folder: `/docs`
 4. Clique em **Save**
 
