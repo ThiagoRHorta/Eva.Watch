@@ -12,6 +12,7 @@ import {
   ClipboardDocumentCheckIcon,
   ClipboardDocumentIcon,
   LinkIcon,
+  ArrowPathIcon,
   XMarkIcon,
   ShieldCheckIcon,
   FireIcon,
@@ -109,8 +110,9 @@ const Dashboard: React.FC = () => {
               <span className="hidden sm:inline">Calculator</span>
             </button>
             <div className="h-8 w-px bg-slate-800 hidden md:block"></div>
-            <div className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 text-xs font-bold uppercase tracking-widest">
-              Atualiza em {secondsToRefresh}s
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 text-xs font-bold uppercase tracking-widest">
+              <ArrowPathIcon className="w-4 h-4" />
+              {secondsToRefresh}s
             </div>
           </div>
         </nav>
