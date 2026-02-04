@@ -1,1 +1,0 @@
-// This file is deprecated. The project now uses client-side scanning only.

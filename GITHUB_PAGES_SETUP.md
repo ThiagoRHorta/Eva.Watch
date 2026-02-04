@@ -6,10 +6,7 @@ Este projeto foi reestruturado para rodar **gratuitamente** no GitHub Pages.
 
 1. Vá para **Settings** do repositório
 2. Navegue até **Pages** (no menu lateral esquerdo)
-3. Em **Source**, selecione:
-   - **Deploy from a branch**
-   - Branch: `development`
-   - Folder: `/ (root)`
+3. Em **Source**, selecione **GitHub Actions**
 4. Clique em **Save**
 
 O site será publicado em: `https://ThiagoRHorta.github.io/Eva-s-Audit/`
@@ -31,8 +28,8 @@ pnpm install
 # Rodar servidor de desenvolvimento
 pnpm dev
 
-# Fazer build para produção
-GITHUB_PAGES=true pnpm build
+# Fazer build para produção (gera a pasta docs para o GitHub Pages)
+pnpm build:pages
 
 # Visualizar build localmente
 pnpm preview
@@ -58,10 +55,18 @@ Após ativar GitHub Pages, o site estará disponível em:
 O arquivo `vite.config.ts` detecta automaticamente quando está rodando no GitHub Pages:
 
 ```typescript
-base: process.env.GITHUB_PAGES ? '/Eva-s-Audit/' : '/',
+base: process.env.GITHUB_PAGES ? "./" : "/",
 ```
 
-Isso garante que todos os assets e rotas funcionem corretamente no subdiretório `/Eva-s-Audit/`.
+Isso garante que todos os assets e rotas funcionem corretamente mesmo quando o projeto é publicado em um subdiretório (como o GitHub Pages).
+
+## 🤖 Deploy automatizado
+
+O workflow em `.github/workflows/deploy-pages.yml` faz:
+
+1. Instala dependências com pnpm
+2. Executa `pnpm build:pages`
+3. Publica o conteúdo de `/docs` no GitHub Pages
 
 ## 📝 Notas
 
