@@ -1,0 +1,58 @@
+[
+  {
+    "title": "EverValue Explicado",
+    "embed": "<iframe width='560' height='315' src='https://www.youtube.com/embed/F2AeUUMz9lY' title='YouTube video player' frameborder='0' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share' allowfullscreen></iframe>",
+    "channel": "EverValue Coin",
+    "category": "official",
+    "publishedAt": "2025-01-01"
+  },
+  {
+    "title": "Como investir em EVA",
+    "embed": "<iframe width='560' height='315' src='https://www.youtube.com/embed/dQw4w9WgXcQ' title='YouTube video player' frameborder='0' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share' allowfullscreen></iframe>",
+    "channel": "Crypto Master",
+    "category": "ambassador",
+    "publishedAt": "2025-02-15"
+  },
+  {
+    "title": "Novidades EverValue Março",
+    "embed": "<iframe width='560' height='315' src='https://www.youtube.com/embed/F2AeUUMz9lY' title='YouTube video player' frameborder='0' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share' allowfullscreen></iframe>",
+    "channel": "EverValue Coin",
+    "category": "official",
+    "publishedAt": "2025-03-01"
+  },
+  {
+    "title": "Análise Técnica EVA",
+    "embed": "<iframe width='560' height='315' src='https://www.youtube.com/embed/dQw4w9WgXcQ' title='YouTube video player' frameborder='0' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share' allowfullscreen></iframe>",
+    "channel": "Trader Pro",
+    "category": "ambassador",
+    "publishedAt": "2025-03-10"
+  },
+  {
+    "title": "EverValue Explicado",
+    "embed": "<iframe width='560' height='315' src='https://www.youtube.com/embed/F2AeUUMz9lY' title='YouTube video player' frameborder='0' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share' allowfullscreen></iframe>",
+    "channel": "EverValue Coin",
+    "category": "official",
+    "publishedAt": "2025-01-01"
+  },
+  {
+    "title": "Como investir em EVA",
+    "embed": "<iframe width='560' height='315' src='https://www.youtube.com/embed/dQw4w9WgXcQ' title='YouTube video player' frameborder='0' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share' allowfullscreen></iframe>",
+    "channel": "Crypto Master",
+    "category": "ambassador",
+    "publishedAt": "2025-02-15"
+  },
+  {
+    "title": "Novidades EverValue Março",
+    "embed": "<iframe width='560' height='315' src='https://www.youtube.com/embed/F2AeUUMz9lY' title='YouTube video player' frameborder='0' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share' allowfullscreen></iframe>",
+    "channel": "EverValue Coin",
+    "category": "official",
+    "publishedAt": "2025-03-01"
+  },
+  {
+    "title": "Análise Técnica EVA",
+    "embed": "<iframe width='560' height='315' src='https://www.youtube.com/embed/dQw4w9WgXcQ' title='YouTube video player' frameborder='0' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share' allowfullscreen></iframe>",
+    "channel": "Trader Pro",
+    "category": "ambassador",
+    "publishedAt": "2025-03-10"
+  }
+]
