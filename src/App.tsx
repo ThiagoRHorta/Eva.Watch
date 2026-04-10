@@ -14,9 +14,20 @@ export default function App() {
   const mainRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetch('/videos.json')
-      .then((res) => res.json())
+    const videosUrl = `${import.meta.env.BASE_URL}videos.json`;
+
+    fetch(videosUrl)
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`Failed to load videos.json (${res.status})`);
+        }
+        return res.json();
+      })
       .then((data) => {
+        if (!Array.isArray(data)) {
+          throw new Error('videos.json must be an array');
+        }
+
         const processedData = data.map((v: any, i: number) => ({
           ...v,
           id: v.id || `${v.title}-${i}`
@@ -29,7 +40,7 @@ export default function App() {
         setLoading(false);
       })
       .catch((err) => {
-        console.error('Error loading videos:', err);
+        console.error(`Error loading videos from ${videosUrl}:`, err);
         setLoading(false);
       });
   }, []);
