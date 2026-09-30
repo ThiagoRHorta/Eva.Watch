@@ -23,14 +23,16 @@ function pvn(x,y,p){const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi,u=xf
 const cl=(v,a,b)=>v<a?a:v>b?b:v;
 function sm(a,b,x){const t=cl((x-a)/(b-a),0,1);return t*t*(3-2*t)}
 
+let sc=1;try{sc=parseFloat(localStorage.getItem('evaScale'))||1}catch(e){}
+const qs=parseFloat(new URLSearchParams(location.search).get('scale'));if(qs)sc=qs;
 let W,H,dpr,tw,th,cols,rows,N,S,cx,cy,atlas,q=1,off=[],cnt=[];
 let X,Y,VIG,SKT,SCT,DI,GH,PH,ST,STV,prev;
 function resize(){
   dpr=Math.min(window.devicePixelRatio||1,2);W=innerWidth;H=innerHeight;
   cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);
-  tw=Math.max(3,Math.round(Math.max(W/300,4.2)*q*dpr));th=Math.round(tw*1.75);
+  tw=Math.max(3,Math.round(Math.max(W/340,4)*q*dpr));th=Math.round(tw*1.75);
   cols=Math.ceil(cv.width/tw);rows=Math.ceil(cv.height/th);N=cols*rows;
-  S=Math.min(W*0.45,H)*dpr;cx=cv.width/2;cy=cv.height/2;
+  S=(W<H*0.9?W*0.45:Math.min(W*0.34,H*0.78))*sc*dpr;cx=cv.width/2;cy=cv.height/2;
   // glyph atlas: one row per alpha level, so no globalAlpha changes at draw time
   const all=G.join('');atlas=document.createElement('canvas');atlas.width=tw*all.length;atlas.height=th*NA;
   const a=atlas.getContext('2d');a.textAlign='center';a.textBaseline='middle';
@@ -58,22 +60,45 @@ function resize(){
   }
 }
 addEventListener('resize',resize);
+addEventListener('keydown',e=>{if(e.key==='-'||e.key==='+'||e.key==='='||e.key==='0'){sc=e.key==='0'?1:cl(sc*(e.key==='-'?0.92:1.08),0.4,1.6);try{localStorage.setItem('evaScale',sc)}catch(_){}resize()}});
 
-let tx=0,ty=0,ix=0,iy=0,lastMove=-1e9,open=1,blinkAt=2,bStart=-1,bDbl=false,sacX=0,sacY=0,nextSac=1;
+let tx=0,ty=0,ix=0,iy=0,lastMove=-1e9,open=1,bo=1,bDur=0.34,closed=0,wake=0,away=false,pd=0,thm=1,blinkAt=2,bStart=-1,bDbl=false,sacX=0,sacY=0,nextSac=1;
 function setT(x,y){lastMove=performance.now();tx=cl((x-W/2)/(W/2)*0.75,-0.5,0.5);ty=cl((y-H/2)/(H/2)*0.2,-0.14,0.14)}
 addEventListener('pointermove',e=>setT(e.clientX,e.clientY));
 addEventListener('touchmove',e=>{const t=e.touches[0];setT(t.clientX,t.clientY)},{passive:true});
+
+// --- alive: time of day, focus, sound, mic, tilt ---
+let sleepy=0,tiltOn=false;
+function calcSleepy(){const d=new Date(),h=d.getHours()+d.getMinutes()/60;sleepy=0.5-0.5*Math.cos((h-14)/24*6.2832)}
+calcSleepy();setInterval(calcSleepy,60000);
+function setAway(a){if(a)away=true;else if(away){away=false;wake=1;closed=Math.max(closed,0.9)}}
+addEventListener('blur',()=>setAway(true));addEventListener('focus',()=>setAway(false));
+document.addEventListener('visibilitychange',()=>{if(document.hidden){away=true;closed=1}else setAway(false)});
+function tiltInit(){
+  if(tiltOn)return;
+  const go=()=>{tiltOn=true;addEventListener('deviceorientation',e=>{if(e.gamma==null)return;lastMove=performance.now();
+    tx=cl(e.gamma/30*0.5,-0.5,0.5);ty=cl(((e.beta||45)-45)/30*0.14,-0.14,0.14)})};
+  if(window.DeviceOrientationEvent&&typeof DeviceOrientationEvent.requestPermission==='function')
+    DeviceOrientationEvent.requestPermission().then(r=>{if(r==='granted')go()}).catch(()=>{});
+  else go();
+}
+addEventListener('pointerdown',tiltInit);
 
 function update(t){
   if(performance.now()-lastMove>5000){tx=0.3*Math.sin(t*0.31)+0.12*Math.sin(t*0.9);ty=0.05*Math.sin(t*0.23+1)}
   if(t>nextSac){sacX=(Math.random()-.5)*0.05;sacY=(Math.random()-.5)*0.02;nextSac=t+0.6+Math.random()*2}
   ix+=(tx+sacX-ix)*0.14;iy+=(ty+sacY-iy)*0.14;
-  if(bStart<0&&t>blinkAt)bStart=t;
+  if(bStart<0&&t>blinkAt){bStart=t;bDur=0.34*(1+1.3*sleepy)*(sleepy>0.5&&Math.random()<0.25?1.8:1)}
   if(bStart>=0){
-    const p=(t-bStart)/0.34;
-    if(p>=1){bStart=-1;open=1;if(!bDbl&&Math.random()<0.18){bDbl=true;blinkAt=t+0.08}else{bDbl=false;blinkAt=t+2.2+Math.random()*4.8}}
-    else open=p<0.36?1-sm(0,1,p/0.36):sm(0,1,(p-0.36)/0.64);
-  }else open=1;
+    const p=(t-bStart)/bDur;
+    if(p>=1){bStart=-1;bo=1;if(!bDbl&&Math.random()<0.18){bDbl=true;blinkAt=t+0.08}else{bDbl=false;blinkAt=t+(2.2+Math.random()*4.8)*(1.1-0.5*sleepy)}}
+    else bo=p<0.36?1-sm(0,1,p/0.36):sm(0,1,(p-0.36)/0.64);
+  }else bo=1;
+  if(away)closed=Math.min(1,closed+0.03);else closed*=0.55;
+  wake*=0.94;
+  pd=0.10*wake+0.025*(1-sleepy);
+  thm=1-0.30*sleepy+0.05*(1-sleepy)+0.10*wake;
+  open=bo*(1-closed);
 }
 
 function lash(x,h,len,sp,seed){
@@ -90,7 +115,7 @@ const R=0.36;
 function lum(i,t){
   const x=X[i],y=Y[i],a=1-x*x,tilt=-0.06*x;
   let pa=0,tp=tilt,bt=tilt;
-  if(a>0){pa=Math.pow(a,0.85);const TH=0.34-0.35*iy;
+  if(a>0){pa=Math.pow(a,0.85);const TH=(0.34-0.35*iy)*thm;
     const top=tilt-TH*pa*(1-0.2*x);bt=tilt+0.26*pa*(1+0.15*x);tp=bt+(top-bt)*open}
   let v;
   if(a>0&&y>tp&&y<bt){
@@ -99,7 +124,7 @@ function lum(i,t){
     if(x<-0.72){const ex=(x+0.9)/0.14,ey=(y-tilt-0.03)/0.10,e=sm(1,0,Math.sqrt(ex*ex+ey*ey));v=v*(1-e)+(0.52+0.2*vn(x*50,y*50))*e}
     const dx=(x-ix)/(1-0.2*Math.abs(ix)),dy=y-iy,r=Math.sqrt(dx*dx+dy*dy)/R;
     if(r<1.06){
-      const ang=Math.atan2(dy,dx)/6.2832+0.5,pr=0.34+0.03*Math.sin(t*0.7)+0.02*(1-open);
+      const ang=Math.atan2(dy,dx)/6.2832+0.5,pr=0.34+0.03*Math.sin(t*0.7)+0.02*(1-open)+pd;
       let ir=0.26+0.40*pvn(ang*36,r*3,36)+0.20*pvn(ang*110,r*7+1.5,110);
       ir+=0.30*Math.exp(-Math.pow((r-0.56)/0.10,2));
       ir*=0.55+0.45*sm(pr,pr+0.16,r);
