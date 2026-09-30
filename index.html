@@ -27,6 +27,75 @@ let sc=1;try{sc=parseFloat(localStorage.getItem('evaScale'))||1}catch(e){}
 const qs=parseFloat(new URLSearchParams(location.search).get('scale'));if(qs)sc=qs;
 let W,H,dpr,tw,th,cols,rows,N,S,cx,cy,atlas,q=1,off=[],cnt=[];
 let X,Y,VIG,SKT,SCT,DI,GH,PH,ST,STV,prev;
+// --- $EVA price: own fine-grained ASCII layer (independent of the eye's grid, so it stays sharp) ---
+// under the eye by default; press P (or ?price=corner) for the bottom-right corner
+const EVA='0x45D9831d8751B2325f3DBf48db748723726e1c8c',FF='"Courier New",ui-monospace,Menlo,Consolas,monospace',MODES=['under','corner'];
+let pMode=(new URLSearchParams(location.search).get('price')||'under').toLowerCase();if(!MODES.includes(pMode))pMode='under';
+let priceStr='$--.--';
+const tc=document.createElement('canvas');tc.style.cssText='position:fixed;inset:0;width:100%;height:100%;pointer-events:none';
+document.body.insertBefore(tc,document.querySelector('.crt'));
+const tctx=tc.getContext('2d'),TC=['.',':','+','*','#','@'];let tAtlas=null,tAtw=0;
+function buildText(){
+  if(!N)return;
+  tc.width=cv.width;tc.height=cv.height;
+  const t2=Math.max(2,Math.round(Math.max(W/340,4)*dpr*0.5)),h2=Math.round(t2*1.75);
+  if(tAtw!==t2){tAtw=t2;tAtlas=document.createElement('canvas');tAtlas.width=t2*TC.length;tAtlas.height=h2;
+    const a=tAtlas.getContext('2d');a.fillStyle='#ecece8';a.textAlign='center';a.textBaseline='middle';a.font='bold '+(h2*0.95)+'px '+FF;
+    TC.forEach((ch,k)=>a.fillText(ch,k*t2+t2/2,h2/2+h2*0.04))}
+  const c2=Math.ceil(cv.width/t2),r2=Math.ceil(cv.height/h2);
+  const m=document.createElement('canvas');m.width=c2;m.height=r2;
+  const g=m.getContext('2d',{willReadFrequently:true});g.scale(1,1/1.75);g.fillStyle='#fff';g.textBaseline='alphabetic';
+  let x0,x1,top,bot,padX,padY,lvl;
+  if(pMode==='corner'){
+    lvl=0.8;const txt='EVA  '+priceStr,em=Math.min(18,c2*0.4/(0.6*txt.length));
+    g.font='bold '+em+'px '+FF;const w=g.measureText(txt).width,row=r2-6;
+    x1=c2-10;x0=x1-w;g.fillText(txt,x0,row*1.75);top=row-0.75*em/1.75;bot=row+0.3*em/1.75;padX=4;padY=2;
+  }else{
+    lvl=0.92;const Sc=S/t2;let eE=0.30*Sc,eP=0.17*Sc;
+    g.font='bold '+eE+'px '+FF;const a0=g.measureText('EVA').width;
+    g.font='bold '+eP+'px '+FF;const b0=g.measureText(priceStr).width;
+    const gap=0.08*Sc,k=Math.min(1,c2*0.86/(a0+gap+b0));eE*=k;eP*=k;
+    g.font='bold '+eE+'px '+FF;const wE=g.measureText('EVA').width;
+    g.font='bold '+eP+'px '+FF;const wP=g.measureText(priceStr).width;
+    padX=0.018*Sc;padY=0.012*S/h2;
+    const row=Math.min((cy+0.68*S)/h2,r2-4-0.3*eE/1.75-padY);
+    x0=(c2-(wE+gap*k+wP))/2;x1=x0+wE+gap*k+wP;
+    g.font='bold '+eE+'px '+FF;g.fillText('EVA',x0,row*1.75);
+    g.font='bold '+eP+'px '+FF;g.fillText(priceStr,x0+wE+gap*k,row*1.75);
+    top=row-0.75*eE/1.75;bot=row+0.3*eE/1.75;
+  }
+  const d=g.getImageData(0,0,c2,r2).data;
+  if(pMode!=='corner'){ // fit the box to the real ink so top and bottom padding are identical
+    let mr=1e9,Mr=-1,mc=1e9,Mc=-1;
+    for(let r=Math.max(0,Math.floor(top-6));r<Math.min(r2,Math.ceil(bot+6));r++)
+      for(let c=Math.max(0,Math.floor(x0-6));c<Math.min(c2,Math.ceil(x1+6));c++)
+        if(d[(r*c2+c)*4+3]>30){if(r<mr)mr=r;if(r>Mr)Mr=r;if(c<mc)mc=c;if(c>Mc)Mc=c}
+    if(Mr>=0){top=mr;bot=Mr+1;x0=mc;x1=Mc+1}
+  }
+  const bx0=Math.max(0,Math.floor(x0-padX)),bx1=Math.min(c2,Math.ceil(x1+padX)),by0=Math.max(0,Math.floor(top-padY)),by1=Math.min(r2,Math.ceil(bot+padY));
+  tctx.clearRect(0,0,tc.width,tc.height);
+  tctx.fillStyle='#000';tctx.fillRect(bx0*t2,by0*h2,(bx1-bx0)*t2,(by1-by0)*h2);
+  tctx.globalAlpha=lvl;
+  for(let r=by0;r<by1;r++)for(let c=bx0;c<bx1;c++){
+    const a=d[(r*c2+c)*4+3]/255;if(a<0.12)continue;
+    tctx.drawImage(tAtlas,Math.min(5,(a*6)|0)*t2,0,t2,h2,c*t2,r*h2,t2,h2);
+  }
+  tctx.globalAlpha=1;
+}
+function setPrice(p){if(!(p>0))return;priceStr='$'+(p>=1?p.toFixed(2):p.toPrecision(3));buildText()}
+async function getPrice(){
+  try{
+    const j=await (await fetch('https://api.dexscreener.com/latest/dex/tokens/'+EVA)).json();
+    const ps=(j.pairs||[]).filter(p=>p.chainId==='arbitrum'&&p.baseToken&&p.baseToken.address.toLowerCase()===EVA.toLowerCase()&&p.priceUsd)
+      .sort((a,b)=>((b.liquidity&&b.liquidity.usd)||0)-((a.liquidity&&a.liquidity.usd)||0));
+    if(ps[0]){setPrice(+ps[0].priceUsd);return}
+  }catch(e){}
+  try{
+    const j=await (await fetch('https://api.geckoterminal.com/api/v2/simple/networks/arbitrum/token_price/'+EVA)).json();
+    setPrice(+j.data.attributes.token_prices[EVA.toLowerCase()]);
+  }catch(e){}
+}
+addEventListener('keydown',e=>{if(e.key==='p'||e.key==='P'){pMode=pMode==='under'?'corner':'under';buildText()}});
 function resize(){
   dpr=Math.min(window.devicePixelRatio||1,2);W=innerWidth;H=innerHeight;
   cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);
@@ -58,6 +127,7 @@ function resize(){
   i=0;for(let r=0;r<rows;r++)for(let c=0;c<cols;c++,i++){
     if(VIG[i]<0.02){ST[i]=1;STV[i]=0}else if(1-X[i]*X[i]<=0){ST[i]=1;STV[i]=lum(i,0)}
   }
+  buildText();
 }
 addEventListener('resize',resize);
 addEventListener('keydown',e=>{if(e.key==='-'||e.key==='+'||e.key==='='||e.key==='0'){sc=e.key==='0'?1:cl(sc*(e.key==='-'?0.92:1.08),0.4,1.6);try{localStorage.setItem('evaScale',sc)}catch(_){}resize()}});
@@ -198,5 +268,5 @@ function frame(ms){
   ema=ema*0.9+(performance.now()-t0)*0.1;
   if(++frameN>40&&ema>20&&q<2.2){q*=1.18;resize();ema=0;frameN=0}
 }
-resize();requestAnimationFrame(frame);
+resize();getPrice();setInterval(getPrice,60000);requestAnimationFrame(frame);
 </script></body></html>
