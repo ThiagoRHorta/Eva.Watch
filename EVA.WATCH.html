@@ -10,28 +10,54 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
 </style></head><body>
 <canvas id="c"></canvas><div class="crt"></div><div class="roll"></div>
 <script>
-const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+const cv=document.getElementById('c'),ctx=cv.getContext('2d',{alpha:true});
 const G=[' ','.',"'`,",':;','-~','+=','*!','i|1','lI7','xo','XO#','%&8','WM','@$B'];
-const NL=G.length,BAY=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5].map(v=>v/16);
-let W,H,dpr,cw,ch,cols,rows,S,cx,cy,atlas,tw,th,off=[];
+const NL=G.length,AL=[0.34,0.46,0.58,0.7,0.85,1],NA=6;
+const BAY=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5].map(v=>v/16);
+const GM=new Float32Array(256);for(let i=0;i<256;i++)GM[i]=Math.pow(i/255,0.85)*(NL-1);
+const FT=new Float32Array(256);
 function hash(x,y){let h=Math.imul(x|0,374761393)^Math.imul(y|0,668265263);h=Math.imul(h^(h>>>13),1274126177);return((h^(h>>>16))>>>0)/4294967296}
+for(let i=0;i<256;i++)FT[i]=hash(i,99);
 function vn(x,y){const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi,u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);const a=hash(xi,yi),b=hash(xi+1,yi),c=hash(xi,yi+1),d=hash(xi+1,yi+1);return a+(b-a)*u+(c-a)*v+(a-b-c+d)*u*v}
 function pvn(x,y,p){const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi,u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);const x0=((xi%p)+p)%p,x1=(x0+1)%p;const a=hash(x0,yi),b=hash(x1,yi),c=hash(x0,yi+1),d=hash(x1,yi+1);return a+(b-a)*u+(c-a)*v+(a-b-c+d)*u*v}
 const cl=(v,a,b)=>v<a?a:v>b?b:v;
 function sm(a,b,x){const t=cl((x-a)/(b-a),0,1);return t*t*(3-2*t)}
+
+let W,H,dpr,tw,th,cols,rows,N,S,cx,cy,atlas,q=1,off=[],cnt=[];
+let X,Y,VIG,SKT,SCT,DI,GH,PH,ST,STV,prev;
 function resize(){
   dpr=Math.min(window.devicePixelRatio||1,2);W=innerWidth;H=innerHeight;
-  cv.width=W*dpr;cv.height=H*dpr;
-  cw=Math.max(W/300,4.2);ch=cw*1.75;cols=Math.ceil(W/cw);rows=Math.ceil(H/ch);
-  S=Math.min(W*0.45,H*1.0);cx=W/2;cy=H/2;
-  tw=Math.ceil(cw*dpr);th=Math.ceil(ch*dpr);
-  const all=G.join('');atlas=document.createElement('canvas');atlas.width=tw*all.length;atlas.height=th;
-  const a=atlas.getContext('2d');a.fillStyle='#ecece8';a.textAlign='center';a.textBaseline='middle';
-  let k=0;off=[];
-  G.forEach((g,lv)=>{off.push(k);a.font=(lv>=8?'bold ':'')+(th*0.95)+'px "Courier New",ui-monospace,Menlo,Consolas,monospace';
-    for(const c of g){if(c!==' ')a.fillText(c,k*tw+tw/2,th/2+th*0.04);k++}});
+  cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);
+  tw=Math.max(3,Math.round(Math.max(W/300,4.2)*q*dpr));th=Math.round(tw*1.75);
+  cols=Math.ceil(cv.width/tw);rows=Math.ceil(cv.height/th);N=cols*rows;
+  S=Math.min(W*0.45,H)*dpr;cx=cv.width/2;cy=cv.height/2;
+  // glyph atlas: one row per alpha level, so no globalAlpha changes at draw time
+  const all=G.join('');atlas=document.createElement('canvas');atlas.width=tw*all.length;atlas.height=th*NA;
+  const a=atlas.getContext('2d');a.textAlign='center';a.textBaseline='middle';
+  off=[];cnt=[];let k=0;
+  G.forEach((g,lv)=>{off.push(k);cnt.push(g.length);
+    for(const ch of g){if(ch!==' ')for(let r=0;r<NA;r++){a.fillStyle='rgba(236,236,232,'+AL[r]+')';
+      a.font=(lv>=8?'bold ':'')+(th*0.95)+'px "Courier New",ui-monospace,Menlo,Consolas,monospace';
+      a.fillText(ch,k*tw+tw/2,r*th+th/2+th*0.04)}k++}});
+  // precompute everything that never changes per cell
+  X=new Float32Array(N);Y=new Float32Array(N);VIG=new Float32Array(N);SKT=new Float32Array(N);SCT=new Float32Array(N);
+  DI=new Float32Array(N);GH=new Uint8Array(N);PH=new Float32Array(N);ST=new Uint8Array(N);STV=new Float32Array(N);
+  prev=new Uint16Array(N);ctx.clearRect(0,0,cv.width,cv.height);
+  let i=0;
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++,i++){
+    const px=(c+0.5)*tw,py=(r+0.5)*th,x=(px-cx)/S,y=(py-cy)/S;X[i]=x;Y[i]=y;
+    const rx=(px-cx)/cx,ry=(py-cy)/cy*0.9;VIG[i]=1-0.96*sm(0.72,1.25,Math.sqrt(rx*rx+ry*ry));
+    SKT[i]=(vn(x*70,y*70)-0.5)*0.15+(vn(x*18,y*18)-0.5)*0.12+0.04*Math.sin(y*110+vn(x*5,y*5)*6);
+    const r1=1-Math.abs(2*vn(x*14+3,y*30)-1);
+    SCT[i]=0.80-0.5*Math.pow(Math.abs(x),2.6)-Math.pow(r1,14)*0.16*(0.3+Math.abs(x))+(vn(x*90,y*90)-0.5)*0.07;
+    DI[i]=(BAY[(r&3)*4+(c&3)]-0.5)*0.9+(hash(c,r)-0.5)*0.35;
+    GH[i]=hash(c*7+3,r*13)*255;PH[i]=hash(c,r+500);
+  }
+  i=0;for(let r=0;r<rows;r++)for(let c=0;c<cols;c++,i++){
+    if(VIG[i]<0.02){ST[i]=1;STV[i]=0}else if(1-X[i]*X[i]<=0){ST[i]=1;STV[i]=lum(i,0)}
+  }
 }
-addEventListener('resize',resize);resize();
+addEventListener('resize',resize);
 
 let tx=0,ty=0,ix=0,iy=0,lastMove=-1e9,open=1,blinkAt=2,bStart=-1,bDbl=false,sacX=0,sacY=0,nextSac=1;
 function setT(x,y){lastMove=performance.now();tx=cl((x-W/2)/(W/2)*0.75,-0.5,0.5);ty=cl((y-H/2)/(H/2)*0.2,-0.14,0.14)}
@@ -42,7 +68,7 @@ function update(t){
   if(performance.now()-lastMove>5000){tx=0.3*Math.sin(t*0.31)+0.12*Math.sin(t*0.9);ty=0.05*Math.sin(t*0.23+1)}
   if(t>nextSac){sacX=(Math.random()-.5)*0.05;sacY=(Math.random()-.5)*0.02;nextSac=t+0.6+Math.random()*2}
   ix+=(tx+sacX-ix)*0.14;iy+=(ty+sacY-iy)*0.14;
-  if(bStart<0&&t>blinkAt){bStart=t}
+  if(bStart<0&&t>blinkAt)bStart=t;
   if(bStart>=0){
     const p=(t-bStart)/0.34;
     if(p>=1){bStart=-1;open=1;if(!bDbl&&Math.random()<0.18){bDbl=true;blinkAt=t+0.08}else{bDbl=false;blinkAt=t+2.2+Math.random()*4.8}}
@@ -61,21 +87,19 @@ function lash(x,h,len,sp,seed){
 }
 
 const R=0.36;
-function lum(px,py,t){
-  const x=(px-cx)/S,y=(py-cy)/S,a=1-x*x,tilt=-0.06*x;
+function lum(i,t){
+  const x=X[i],y=Y[i],a=1-x*x,tilt=-0.06*x;
   let pa=0,tp=tilt,bt=tilt;
   if(a>0){pa=Math.pow(a,0.85);const TH=0.34-0.35*iy;
     const top=tilt-TH*pa*(1-0.2*x);bt=tilt+0.26*pa*(1+0.15*x);tp=bt+(top-bt)*open}
   let v;
   if(a>0&&y>tp&&y<bt){
     const dt=y-tp,db=bt-y;
-    v=0.80-0.5*Math.pow(Math.abs(x),2.6);
-    const r1=1-Math.abs(2*vn(x*14+3,y*30)-1);v-=Math.pow(r1,14)*0.16*(0.3+Math.abs(x));
-    v+=(vn(x*90,y*90)-0.5)*0.07;
-    if(x<-0.72){const e=sm(1,0,Math.hypot((x+0.9)/0.14,(y-tilt-0.03)/0.10));v=v*(1-e)+(0.52+0.2*vn(x*50,y*50))*e}
-    const dx=(x-ix)/(1-0.2*Math.abs(ix)),dy=y-iy,r=Math.hypot(dx,dy)/R;
+    v=SCT[i];
+    if(x<-0.72){const ex=(x+0.9)/0.14,ey=(y-tilt-0.03)/0.10,e=sm(1,0,Math.sqrt(ex*ex+ey*ey));v=v*(1-e)+(0.52+0.2*vn(x*50,y*50))*e}
+    const dx=(x-ix)/(1-0.2*Math.abs(ix)),dy=y-iy,r=Math.sqrt(dx*dx+dy*dy)/R;
     if(r<1.06){
-      const ang=Math.atan2(dy,dx)/(6.2832)+0.5,pr=0.34+0.03*Math.sin(t*0.7)+0.05*open*0+0.02*(1-open);
+      const ang=Math.atan2(dy,dx)/6.2832+0.5,pr=0.34+0.03*Math.sin(t*0.7)+0.02*(1-open);
       let ir=0.26+0.40*pvn(ang*36,r*3,36)+0.20*pvn(ang*110,r*7+1.5,110);
       ir+=0.30*Math.exp(-Math.pow((r-0.56)/0.10,2));
       ir*=0.55+0.45*sm(pr,pr+0.16,r);
@@ -87,61 +111,67 @@ function lum(px,py,t){
     v*=1-0.6*Math.exp(-dt/0.09);v*=1-0.15*Math.exp(-db/0.05);
     if(dt<0.03)v*=0.15+0.85*sm(0,0.03,dt);
     if(db<0.022)v=Math.max(v,0.95*sm(0.022,0.006,db)+v*0.2);
-    // catchlights
-    const c1=Math.hypot((x-(ix-0.30*R))/(0.26*R),(y-(iy-0.34*R))/(0.21*R));
-    const g1=sm(1.05,0.75,c1);v=v+(1-v)*g1;
-    const c2=Math.hypot((x-(ix+0.36*R))/(0.10*R),(y-(iy+0.42*R))/(0.09*R));
-    v=Math.max(v,0.7*sm(1,0.6,c2));
-    v+=0.16*Math.exp(-Math.pow(Math.hypot(x-(ix-0.2*R),y-(iy-0.25*R))/(0.55*R),2))*(r<1?1:0);
+    let ux=(x-(ix-0.30*R))/(0.26*R),uy=(y-(iy-0.34*R))/(0.21*R);
+    v=v+(1-v)*sm(1.05,0.75,Math.sqrt(ux*ux+uy*uy));
+    ux=(x-(ix+0.36*R))/(0.10*R);uy=(y-(iy+0.42*R))/(0.09*R);
+    v=Math.max(v,0.7*sm(1,0.6,Math.sqrt(ux*ux+uy*uy)));
+    if(r<1){ux=(x-(ix-0.2*R))/(0.55*R);uy=(y-(iy-0.25*R))/(0.55*R);v+=0.16*Math.exp(-(ux*ux+uy*uy))}
   }else{
     let above,d;
     if(a<=0){d=Math.abs(y-tilt);above=y<tilt}else if(y<=tp){d=tp-y;above=true}else{d=y-bt;above=false}
     if(above){
-      v=0.5-0.08*Math.min(1,Math.abs(x)*0.6);
-      v+=0.08*sm(0,0.16,d);
-      v-=0.36*Math.exp(-Math.pow((d-0.17)/0.024,2));
-      v+=0.13*Math.exp(-Math.pow((d-0.33)/0.10,2));
+      v=0.5-0.08*Math.min(1,Math.abs(x)*0.6)+0.08*sm(0,0.16,d);
+      if(d<0.4){const k=(d-0.17)/0.024;v-=0.36*Math.exp(-k*k)}
+      const k2=(d-0.33)/0.10;v+=0.13*Math.exp(-k2*k2);
       v-=0.24*sm(0.5,1.0,d);
     }else{
-      v=0.48-0.16*Math.exp(-Math.pow((d-0.15)/0.07,2))+0.08*sm(0.2,0.5,d)-0.22*sm(0.7,1.2,d);
+      const k=(d-0.15)/0.07;
+      v=0.48-0.16*Math.exp(-k*k)+0.08*sm(0.2,0.5,d)-0.22*sm(0.7,1.2,d);
     }
-    v-=0.3*Math.exp(-d/0.012)*(a>0?1:0);
-    v-=0.16*sm(-1,-1.7,x);
-    v+=(vn(x*70,y*70)-0.5)*0.15+(vn(x*18,y*18)-0.5)*0.12;
-    v+=0.04*Math.sin(y*110+vn(x*5,y*5)*6);
+    if(a>0)v-=0.3*Math.exp(-d/0.012);
+    v+=SKT[i]-0.16*sm(-1,-1.7,x);
   }
-  // lashes
-  if(a>0.02){
+  if(a>0.02&&(y<tp?tp-y<0.21:y-bt<0.07||y-tp<0.18)){
     const sq=Math.sqrt(a),inner=sm(-0.98,-0.5,x);
     if(y<tp&&lash(x,tp-y,0.20*sq*inner+0.02,0.024,0))v=Math.min(v,0.03);
     else if(y>tp&&open<0.75&&lash(x,y-tp,0.17*sq*(1-open/0.75),0.024,40))v=Math.min(v,0.04);
     if(y>bt&&Math.abs(x)<0.85&&lash(x,y-bt,0.06*sq,0.05,90))v=Math.min(v,0.07);
   }
-  const rr=Math.hypot((px-W/2)/(W/2),(py-H/2)/(H/2)*0.9);
-  v*=1-0.96*sm(0.72,1.25,rr);
+  v*=VIG[i];
   return v<0?0:v>1?1:v;
 }
 
-let last=0,frameN=0;
+let last=0,frameN=0,ema=0;
 function frame(ms){
   requestAnimationFrame(frame);
-  if(ms-last<32)return;last=ms;frameN++;
-  const t=ms/1000;update(t);
-  ctx.setTransform(dpr,0,0,dpr,0,0);ctx.globalAlpha=1;ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
-  const fl=Math.floor(t*5),shiftRow=Math.random()<0.03?Math.floor(Math.random()*rows):-1;
+  if(ms-last<30)return;last=ms;
+  const t=ms/1000,t0=performance.now();update(t);
+  const t25=t*2.5;let i=0;
   for(let r=0;r<rows;r++){
-    const py=(r+0.5)*ch,jit=(r===shiftRow)?(Math.random()-.5)*cw*2:0;
-    for(let c=0;c<cols;c++){
-      const px=(c+0.5)*cw,v=lum(px,py,t);
-      if(v<0.02)continue;
-      const dith=(BAY[(r&3)*4+(c&3)]-0.5)*0.9+(hash(c,r)-0.5)*0.35;
-      const lv=Math.round(Math.pow(v,0.85)*(NL-1)+dith);
-      if(lv<=0)continue;
-      const g=G[Math.min(lv,NL-1)],ci=off[Math.min(lv,NL-1)]+(hash(c*7+3,r*13)*g.length|0);
-      ctx.globalAlpha=cl(0.62+0.38*v+(hash(c+fl,r)-0.5)*0.14,0.3,1);
-      ctx.drawImage(atlas,ci*tw,0,tw,th,c*cw+jit,r*ch,cw+0.4,ch+0.4);
+    const y0=r*th;
+    for(let c=0;c<cols;c++,i++){
+      const v=ST[i]?STV[i]:lum(i,t);
+      let code=0,g=0,ai=0;
+      if(v>=0.02){
+        let lv=Math.round(GM[(v*255)|0]+DI[i]);
+        if(lv>0){
+          if(lv>=NL)lv=NL-1;
+          g=off[lv]+((GH[i]*cnt[lv])>>8);
+          const fn=(FT[(i*31+Math.floor(t25+PH[i]))&255]-0.5)*0.14;
+          ai=cl(Math.floor((0.62+0.38*v+fn-0.28)/0.13),0,NA-1);
+          code=g*NA+ai+1;
+        }
+      }
+      if(code!==prev[i]){
+        prev[i]=code;const x0=c*tw;
+        ctx.clearRect(x0,y0,tw,th);
+        if(code)ctx.drawImage(atlas,g*tw,ai*th,tw,th,x0,y0,tw,th);
+      }
     }
   }
+  // adaptive quality: coarsen the character grid if frames run long
+  ema=ema*0.9+(performance.now()-t0)*0.1;
+  if(++frameN>40&&ema>20&&q<2.2){q*=1.18;resize();ema=0;frameN=0}
 }
-requestAnimationFrame(frame);
+resize();requestAnimationFrame(frame);
 </script></body></html>
