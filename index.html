@@ -7,6 +7,18 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
 .crt{position:fixed;inset:0;pointer-events:none;background:repeating-linear-gradient(to bottom,rgba(0,0,0,0) 0,rgba(0,0,0,0) 2px,rgba(0,0,0,.15) 3px),radial-gradient(ellipse at center,rgba(0,0,0,0) 60%,rgba(0,0,0,.5) 100%)}
 .roll{position:fixed;left:0;right:0;height:18%;pointer-events:none;background:linear-gradient(to bottom,rgba(255,255,255,0),rgba(255,255,255,.035),rgba(255,255,255,0));animation:r 9s linear infinite}
 @keyframes r{from{top:-20%}to{top:110%}}
+/* camada de cor do olho: multiply mantém o preto e tinge só os caracteres */
+#tint{position:fixed;inset:0;pointer-events:none;mix-blend-mode:multiply;background:#fff;opacity:0;transition:background-color 2.5s ease,opacity 2.5s ease}
+/* aviso de conexão (canto superior esquerdo) */
+#net{position:fixed;left:calc(env(safe-area-inset-left,0px) + 16px);top:calc(env(safe-area-inset-top,0px) + 14px);font:bold 12px "Courier New",ui-monospace,Menlo,Consolas,monospace;letter-spacing:.22em;color:#ecece8;opacity:0;transition:opacity .6s;pointer-events:none;text-shadow:0 0 6px rgba(236,236,232,.35)}
+#net.on{opacity:.85}
+#net i{font-style:normal;animation:bl 1s steps(2,start) infinite}
+@keyframes bl{to{visibility:hidden}}
+/* cursor próprio: anel com contorno preto para não se perder no meio dos caracteres */
+#cur{position:fixed;left:0;top:0;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;box-sizing:border-box;border:1.5px solid #ecece8;box-shadow:0 0 0 1.5px #000,inset 0 0 0 1.5px #000;pointer-events:none;opacity:0;z-index:9;transition:opacity .25s,width .15s,height .15s,margin .15s,background .15s}
+#cur::after{content:"";position:absolute;left:50%;top:50%;width:3px;height:3px;margin:-1.5px 0 0 -1.5px;background:#ecece8;box-shadow:0 0 0 1.5px #000}
+#cur.show{opacity:1}
+#cur.hot{width:30px;height:30px;margin:-15px 0 0 -15px;background:rgba(236,236,232,.14)}
 </style></head><body>
 <canvas id="c"></canvas><div class="crt"></div><div class="roll"></div>
 <script>
@@ -32,11 +44,14 @@ let X,Y,VIG,SKT,SCT,DI,GH,PH,ST,STV,prev;
 const EVA='0x45D9831d8751B2325f3DBf48db748723726e1c8c',FF='"Courier New",ui-monospace,Menlo,Consolas,monospace',MODES=['under','corner'];
 let pMode=(new URLSearchParams(location.search).get('price')||'under').toLowerCase();if(!MODES.includes(pMode))pMode='under';
 let priceStr='$--.--';
-const tc=document.createElement('canvas');tc.style.cssText='position:fixed;inset:0;width:100%;height:100%;pointer-events:none';
+const tc=document.createElement('canvas');tc.style.cssText='position:fixed;inset:0;width:100%;height:100%;pointer-events:none;transition:opacity .6s';
 document.body.insertBefore(tc,document.querySelector('.crt'));
+const tint=document.createElement('div');tint.id='tint';document.body.insertBefore(tint,tc); // acima do olho, abaixo do preço
+const net=document.createElement('div');net.id='net';net.innerHTML='OFFLINE<i>_</i>';document.body.insertBefore(net,document.querySelector('.crt'));
+const cur=document.createElement('div');cur.id='cur';document.body.appendChild(cur);
 const tctx=tc.getContext('2d'),TC=['.',':','+','*','#','@'];let tAtlas=null,tAtw=0;
 // estado extra do painel de preço: variação 24h
-let chgStr='',chgDir=0;
+let chgStr='',chgDir=0,fails=0,lblMode=0,boxR=null,hot=false,curT=0,lblT=0; // lblMode: 0 EVA/USD, 1 COPY CA (hover), 2 COPIED
 function buildText(){
   if(!N)return;
   tc.width=cv.width;tc.height=cv.height;
@@ -60,12 +75,12 @@ function buildText(){
     else g.fillRect(x,y-hA*0.6,wA,hA*0.24);
     TX(chgStr,x+wA+0.3*em,y,em,a);
   };
-  let x0,x1,top,bot,padX,padY,lvl;
+  let x0,x1,top,bot,padX,padY,lvl,emRef=0;
   if(pMode==='corner'){
     lvl=0.8;const txt='EVA  '+priceStr,n=txt.length+(chgStr?chgStr.length+3:0),em=Math.min(18,c2*0.44/(0.6*n)),row=r2-9;
     const emC=em*0.62,w=wd(txt,em),gc=0.5*em,cW=cw(emC);
     x1=c2-16;x0=x1-w-(cW?gc+cW:0);
-    TX(txt,x0,row*1.75,em,1);if(chgStr)CH(x0+w+gc,row*1.75,emC,0.78);
+    emRef=em;TX(txt,x0,row*1.75,em,1);if(chgStr)CH(x0+w+gc,row*1.75,emC,0.78);
     top=row-0.75*em/1.75;bot=row+0.3*em/1.75;padX=4;padY=2;
   }else{
     lvl=0.92;let eE=0.30*Sc,eP=0.17*Sc,eC=0.085*Sc;
@@ -97,9 +112,9 @@ function buildText(){
   RC(fX0,fY0,fX1-fX0,1,HL);RC(fX0,fY1-1,fX1-fX0,1,HL);RC(fX0,fY0,vw,fY1-fY0,HL);RC(fX1-vw,fY0,vw,fY1-fY0,HL);
   RC(fX0,fY0,lc,1,BR);RC(fX0,fY0,vw,lr,BR);RC(fX1-lc,fY0,lc,1,BR);RC(fX1-vw,fY0,vw,lr,BR);
   RC(fX0,fY1-1,lc,1,BR);RC(fX0,fY1-lr,vw,lr,BR);RC(fX1-lc,fY1-1,lc,1,BR);RC(fX1-vw,fY1-lr,vw,lr,BR);
-  // --- rótulo embutido na borda de cima, à direita (só no modo "under") ---
-  if(pMode!=='corner'){
-    const eL=Math.max(7,0.08*Sc),cyL=(fY0+0.5)*1.75,lt='EVA/USD',lw=wd(lt,eL);
+  // --- rótulo embutido na borda de cima, à direita (nas duas caixas); em hover vira COPY CA e ao copiar COPIED ---
+  {
+    const eL=pMode==='corner'?Math.max(6,emRef*0.7):Math.max(7,0.08*Sc),cyL=(fY0+0.5)*1.75,lt=lblMode===2?'COPIED':lblMode===1?'COPY CA':'EVA/USDT',lw=wd(lt,eL);
     const lx=fX1-lc-3-lw;
     if(lx>fX0+lc+3){g.clearRect(lx-2,cyL-0.62*eL,lw+4,1.24*eL);TX(lt,lx,cyL+0.36*eL,eL,0.8)}
   }
@@ -113,31 +128,64 @@ function buildText(){
     tctx.drawImage(tAtlas,Math.min(5,(a*6)|0)*t2,0,t2,h2,c*t2,r*h2,t2,h2);
   }
   tctx.globalAlpha=1;
+  boxR={x:fX0*t2/dpr,y:fY0*h2/dpr,w:(fX1-fX0)*t2/dpr,h:(fY1-fY0)*h2/dpr}; // área clicável (px CSS)
+}
+function setTint(x){ // x = variação % de 24h (a mesma da caixa); cor só pelo sinal, qualquer tamanho de variação
+  if(!Number.isFinite(x)||Math.abs(x)<0.005){tint.style.opacity=0;return} // sem dado ou exatamente 0 => olho neutro
+  tint.style.backgroundColor=x>0?'#9be8b0':'#ff9aa6'; // verde / vermelho pastel
+  tint.style.opacity=0.55;
 }
 function setPrice(p,chg){
   if(!(p>0))return;
   priceStr='$'+(p>=1?p.toFixed(2):p.toPrecision(3));
   chg=(chg==null||chg==='')?NaN:+chg;
   if(Number.isFinite(chg)){const a=Math.abs(chg);chgDir=a<0.005?0:chg>0?1:-1;chgStr=a.toFixed(a<10?2:1)+'%'}else{chgStr='';chgDir=0}
+  setTint(chg);
   buildText();
 }
+function netState(){ // OFFLINE só depois de 2 falhas seguidas (ou sem rede); o preço escurece enquanto isso
+  const off=fails>=2||navigator.onLine===false;
+  net.classList.toggle('on',off);tc.style.opacity=off?0.4:1;
+}
+const sig=()=>window.AbortSignal&&AbortSignal.timeout?AbortSignal.timeout(8000):undefined;
 async function getPrice(){
   const lo=EVA.toLowerCase(),v=p=>(p.volume&&p.volume.h24)||0,L=p=>(p.liquidity&&p.liquidity.usd)||0;
   try{
-    const r=await fetch('https://api.dexscreener.com/tokens/v1/arbitrum/'+EVA,{cache:'no-store'});
+    const r=await fetch('https://api.dexscreener.com/tokens/v1/arbitrum/'+EVA,{cache:'no-store',signal:sig()});
     const j=await r.json();
     // pega o par com mais volume nas últimas 24h (desempate por liquidez), evitando pools parados
     const ps=(Array.isArray(j)?j:[]).filter(p=>p.baseToken&&p.baseToken.address.toLowerCase()===lo&&+p.priceUsd>0)
       .sort((a,b)=>(v(b)-v(a))||(L(b)-L(a)));
-    if(ps[0]){console.log('[eva] par:',ps[0].dexId,ps[0].pairAddress,'preço',ps[0].priceUsd,'vol24h',v(ps[0]));setPrice(+ps[0].priceUsd,ps[0].priceChange&&ps[0].priceChange.h24);return}
+    if(ps[0]){const pc=ps[0].priceChange||{};console.log('[eva] par:',ps[0].dexId,ps[0].pairAddress,'preço',ps[0].priceUsd,'vol24h',v(ps[0]));
+      setPrice(+ps[0].priceUsd,pc.h24);fails=0;netState();return}
     console.warn('[eva] dexscreener: nenhum par válido');
   }catch(e){console.warn('[eva] dexscreener falhou',e)}
   try{
-    const r=await fetch('https://api.geckoterminal.com/api/v2/simple/networks/arbitrum/token_price/'+EVA,{cache:'no-store'});
-    const j=await r.json();
-    setPrice(+j.data.attributes.token_prices[lo]);
+    const r=await fetch('https://api.geckoterminal.com/api/v2/simple/networks/arbitrum/token_price/'+EVA,{cache:'no-store',signal:sig()});
+    const j=await r.json();const p=+j.data.attributes.token_prices[lo];
+    if(p>0){setPrice(p);fails=0;netState();return}
   }catch(e){console.warn('[eva] gecko falhou',e)}
+  fails++;netState();
 }
+addEventListener('offline',netState);addEventListener('online',()=>{netState();getPrice()});
+// --- cursor próprio (some após 2,5 s parado) + clique na caixa copia o contrato ---
+const inBox=(x,y)=>boxR&&x>=boxR.x-6&&x<=boxR.x+boxR.w+6&&y>=boxR.y-10&&y<=boxR.y+boxR.h+6;
+function setLbl(m){if(lblMode!==m){lblMode=m;buildText()}}
+addEventListener('pointermove',e=>{
+  if(e.pointerType!=='mouse')return;
+  cur.style.transform='translate('+e.clientX+'px,'+e.clientY+'px)';cur.classList.add('show');
+  clearTimeout(curT);curT=setTimeout(()=>{cur.classList.remove('show','hot');hot=false;if(lblMode===1)setLbl(0)},2500);
+  const h=inBox(e.clientX,e.clientY);cur.classList.toggle('hot',h);
+  if(h!==hot){hot=h;if(lblMode!==2)setLbl(h?1:0)}
+});
+document.documentElement.addEventListener('mouseleave',()=>{cur.classList.remove('show','hot');hot=false;if(lblMode===1)setLbl(0)});
+function copyCA(){
+  const done=()=>{setLbl(2);clearTimeout(lblT);lblT=setTimeout(()=>{lblMode=hot?1:0;buildText()},1600)};
+  const fb=()=>{const t=document.createElement('textarea');t.value=EVA;t.style.cssText='position:fixed;opacity:0';document.body.appendChild(t);t.select();
+    try{if(document.execCommand('copy'))done()}catch(_){}t.remove()};
+  try{navigator.clipboard.writeText(EVA).then(done,fb)}catch(e){fb()}
+}
+addEventListener('click',e=>{if(inBox(e.clientX,e.clientY))copyCA()});
 addEventListener('keydown',e=>{if(e.key==='p'||e.key==='P'){pMode=pMode==='under'?'corner':'under';buildText()}});
 function resize(){
   dpr=Math.min(window.devicePixelRatio||1,2);W=innerWidth;H=innerHeight;
