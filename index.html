@@ -35,6 +35,8 @@ let priceStr='$--.--';
 const tc=document.createElement('canvas');tc.style.cssText='position:fixed;inset:0;width:100%;height:100%;pointer-events:none';
 document.body.insertBefore(tc,document.querySelector('.crt'));
 const tctx=tc.getContext('2d'),TC=['.',':','+','*','#','@'];let tAtlas=null,tAtw=0;
+// estado extra do painel de preço: variação 24h
+let chgStr='',chgDir=0;
 function buildText(){
   if(!N)return;
   tc.width=cv.width;tc.height=cv.height;
@@ -42,47 +44,83 @@ function buildText(){
   if(tAtw!==t2){tAtw=t2;tAtlas=document.createElement('canvas');tAtlas.width=t2*TC.length;tAtlas.height=h2;
     const a=tAtlas.getContext('2d');a.fillStyle='#ecece8';a.textAlign='center';a.textBaseline='middle';a.font='bold '+(h2*0.95)+'px '+FF;
     TC.forEach((ch,k)=>a.fillText(ch,k*t2+t2/2,h2/2+h2*0.04))}
-  const c2=Math.ceil(cv.width/t2),r2=Math.ceil(cv.height/h2);
+  const c2=Math.ceil(cv.width/t2),r2=Math.ceil(cv.height/h2),Sc=S/t2;
   const m=document.createElement('canvas');m.width=c2;m.height=r2;
-  const g=m.getContext('2d',{willReadFrequently:true});g.scale(1,1/1.75);g.fillStyle='#fff';g.textBaseline='alphabetic';
+  const g=m.getContext('2d',{willReadFrequently:true});g.scale(1,1/1.75);g.textBaseline='alphabetic';
+  // helpers de desenho na máscara (x em colunas; y em unidades isotrópicas, 1 linha = 1.75)
+  const FS=a=>{g.fillStyle='rgba(255,255,255,'+a+')'};
+  const TX=(s,x,y,em,a)=>{FS(a);g.font='bold '+em+'px '+FF;g.fillText(s,x,y)};
+  const RC=(x,y,w,h,a)=>{FS(a);g.fillRect(x,y*1.75,w,h*1.75)}; // coluna, linha, larg(cols), alt(linhas)
+  const wd=(s,em)=>{g.font='bold '+em+'px '+FF;return g.measureText(s).width};
+  const cw=em=>chgStr?0.7*em+0.3*em+wd(chgStr,em):0;
+  const CH=(x,y,em,a)=>{ // seta (▲ ▼ ou = ) + variação 24h
+    const wA=0.7*em,hA=0.62*em;FS(a);
+    if(chgDir>0){g.beginPath();g.moveTo(x,y);g.lineTo(x+wA,y);g.lineTo(x+wA/2,y-hA);g.closePath();g.fill()}
+    else if(chgDir<0){g.beginPath();g.moveTo(x,y-hA);g.lineTo(x+wA,y-hA);g.lineTo(x+wA/2,y);g.closePath();g.fill()}
+    else g.fillRect(x,y-hA*0.6,wA,hA*0.24);
+    TX(chgStr,x+wA+0.3*em,y,em,a);
+  };
   let x0,x1,top,bot,padX,padY,lvl;
   if(pMode==='corner'){
-    lvl=0.8;const txt='EVA  '+priceStr,em=Math.min(18,c2*0.4/(0.6*txt.length));
-    g.font='bold '+em+'px '+FF;const w=g.measureText(txt).width,row=r2-6;
-    x1=c2-10;x0=x1-w;g.fillText(txt,x0,row*1.75);top=row-0.75*em/1.75;bot=row+0.3*em/1.75;padX=4;padY=2;
+    lvl=0.8;const txt='EVA  '+priceStr,n=txt.length+(chgStr?chgStr.length+3:0),em=Math.min(18,c2*0.44/(0.6*n)),row=r2-9;
+    const emC=em*0.62,w=wd(txt,em),gc=0.5*em,cW=cw(emC);
+    x1=c2-16;x0=x1-w-(cW?gc+cW:0);
+    TX(txt,x0,row*1.75,em,1);if(chgStr)CH(x0+w+gc,row*1.75,emC,0.78);
+    top=row-0.75*em/1.75;bot=row+0.3*em/1.75;padX=4;padY=2;
   }else{
-    lvl=0.92;const Sc=S/t2;let eE=0.30*Sc,eP=0.17*Sc;
-    g.font='bold '+eE+'px '+FF;const a0=g.measureText('EVA').width;
-    g.font='bold '+eP+'px '+FF;const b0=g.measureText(priceStr).width;
-    const gap=0.08*Sc,k=Math.min(1,c2*0.86/(a0+gap+b0));eE*=k;eP*=k;
-    g.font='bold '+eE+'px '+FF;const wE=g.measureText('EVA').width;
-    g.font='bold '+eP+'px '+FF;const wP=g.measureText(priceStr).width;
+    lvl=0.92;let eE=0.30*Sc,eP=0.17*Sc,eC=0.085*Sc;
+    const gap=0.08*Sc,gc=0.05*Sc;
+    const tot=wd('EVA',eE)+gap+wd(priceStr,eP)+(chgStr?gc+cw(eC):0);
+    const k=Math.min(1,c2*0.80/tot);eE*=k;eP*=k;eC*=k;
+    const wE=wd('EVA',eE),wP=wd(priceStr,eP),cW=cw(eC),gp=gap*k,gk=gc*k;
     padX=0.018*Sc;padY=0.012*S/h2;
-    const row=Math.min((cy+0.68*S)/h2,r2-4-0.3*eE/1.75-padY);
-    x0=(c2-(wE+gap*k+wP))/2;x1=x0+wE+gap*k+wP;
-    g.font='bold '+eE+'px '+FF;g.fillText('EVA',x0,row*1.75);
-    g.font='bold '+eP+'px '+FF;g.fillText(priceStr,x0+wE+gap*k,row*1.75);
+    const row=Math.min((cy+0.68*S)/h2,r2-9-0.3*eE/1.75-padY);
+    const tw2=wE+gp+wP+(cW?gk+cW:0);
+    x0=(c2-tw2)/2;x1=x0+tw2;
+    TX('EVA',x0,row*1.75,eE,1);TX(priceStr,x0+wE+gp,row*1.75,eP,1);
+    if(chgStr)CH(x0+wE+gp+wP+gk,row*1.75,eC,0.78);
     top=row-0.75*eE/1.75;bot=row+0.3*eE/1.75;
   }
-  const d=g.getImageData(0,0,c2,r2).data;
-  if(pMode!=='corner'){ // fit the box to the real ink so top and bottom padding are identical
+  const d1=g.getImageData(0,0,c2,r2).data;
+  if(pMode!=='corner'){ // encaixa a caixa na tinta real para o respiro de cima e de baixo ser idêntico
     let mr=1e9,Mr=-1,mc=1e9,Mc=-1;
     for(let r=Math.max(0,Math.floor(top-6));r<Math.min(r2,Math.ceil(bot+6));r++)
       for(let c=Math.max(0,Math.floor(x0-6));c<Math.min(c2,Math.ceil(x1+6));c++)
-        if(d[(r*c2+c)*4+3]>30){if(r<mr)mr=r;if(r>Mr)Mr=r;if(c<mc)mc=c;if(c>Mc)Mc=c}
+        if(d1[(r*c2+c)*4+3]>30){if(r<mr)mr=r;if(r>Mr)Mr=r;if(c<mc)mc=c;if(c>Mc)Mc=c}
     if(Mr>=0){top=mr;bot=Mr+1;x0=mc;x1=Mc+1}
   }
   const bx0=Math.max(0,Math.floor(x0-padX)),bx1=Math.min(c2,Math.ceil(x1+padX)),by0=Math.max(0,Math.floor(top-padY)),by1=Math.min(r2,Math.ceil(bot+padY));
+  // --- moldura: filete pontilhado + cantoneiras sólidas (estilo HUD / terminal) ---
+  const fx=Math.max(3,Math.round(0.022*Sc)),fy=Math.max(2,Math.round(fx/1.75)),vw=2;
+  const fX0=Math.max(3,bx0-fx),fX1=Math.min(c2-3,bx1+fx),fY0=Math.max(4,by0-fy),fY1=Math.min(r2-2,by1+fy);
+  const HL=0.30,BR=0.92,lc=Math.max(6,Math.round(0.07*Sc)),lr=Math.max(3,Math.round(lc/1.75));
+  RC(fX0,fY0,fX1-fX0,1,HL);RC(fX0,fY1-1,fX1-fX0,1,HL);RC(fX0,fY0,vw,fY1-fY0,HL);RC(fX1-vw,fY0,vw,fY1-fY0,HL);
+  RC(fX0,fY0,lc,1,BR);RC(fX0,fY0,vw,lr,BR);RC(fX1-lc,fY0,lc,1,BR);RC(fX1-vw,fY0,vw,lr,BR);
+  RC(fX0,fY1-1,lc,1,BR);RC(fX0,fY1-lr,vw,lr,BR);RC(fX1-lc,fY1-1,lc,1,BR);RC(fX1-vw,fY1-lr,vw,lr,BR);
+  // --- rótulo embutido na borda de cima, à direita (só no modo "under") ---
+  if(pMode!=='corner'){
+    const eL=Math.max(7,0.08*Sc),cyL=(fY0+0.5)*1.75,lt='EVA/USD',lw=wd(lt,eL);
+    const lx=fX1-lc-3-lw;
+    if(lx>fX0+lc+3){g.clearRect(lx-2,cyL-0.62*eL,lw+4,1.24*eL);TX(lt,lx,cyL+0.36*eL,eL,0.8)}
+  }
+  const d=g.getImageData(0,0,c2,r2).data;
+  const kx0=Math.max(0,fX0-2),kx1=Math.min(c2,fX1+2),ky0=Math.max(0,fY0-2),ky1=Math.min(r2,fY1+1);
   tctx.clearRect(0,0,tc.width,tc.height);
-  tctx.fillStyle='#000';tctx.fillRect(bx0*t2,by0*h2,(bx1-bx0)*t2,(by1-by0)*h2);
+  tctx.fillStyle='#000';tctx.fillRect(kx0*t2,ky0*h2,(kx1-kx0)*t2,(ky1-ky0)*h2);
   tctx.globalAlpha=lvl;
-  for(let r=by0;r<by1;r++)for(let c=bx0;c<bx1;c++){
+  for(let r=ky0;r<ky1;r++)for(let c=kx0;c<kx1;c++){
     const a=d[(r*c2+c)*4+3]/255;if(a<0.12)continue;
     tctx.drawImage(tAtlas,Math.min(5,(a*6)|0)*t2,0,t2,h2,c*t2,r*h2,t2,h2);
   }
   tctx.globalAlpha=1;
 }
-function setPrice(p){if(!(p>0))return;priceStr='$'+(p>=1?p.toFixed(2):p.toPrecision(3));buildText()}
+function setPrice(p,chg){
+  if(!(p>0))return;
+  priceStr='$'+(p>=1?p.toFixed(2):p.toPrecision(3));
+  chg=(chg==null||chg==='')?NaN:+chg;
+  if(Number.isFinite(chg)){const a=Math.abs(chg);chgDir=a<0.005?0:chg>0?1:-1;chgStr=a.toFixed(a<10?2:1)+'%'}else{chgStr='';chgDir=0}
+  buildText();
+}
 async function getPrice(){
   const lo=EVA.toLowerCase(),v=p=>(p.volume&&p.volume.h24)||0,L=p=>(p.liquidity&&p.liquidity.usd)||0;
   try{
@@ -91,7 +129,7 @@ async function getPrice(){
     // pega o par com mais volume nas últimas 24h (desempate por liquidez), evitando pools parados
     const ps=(Array.isArray(j)?j:[]).filter(p=>p.baseToken&&p.baseToken.address.toLowerCase()===lo&&+p.priceUsd>0)
       .sort((a,b)=>(v(b)-v(a))||(L(b)-L(a)));
-    if(ps[0]){console.log('[eva] par:',ps[0].dexId,ps[0].pairAddress,'preço',ps[0].priceUsd,'vol24h',v(ps[0]));setPrice(+ps[0].priceUsd);return}
+    if(ps[0]){console.log('[eva] par:',ps[0].dexId,ps[0].pairAddress,'preço',ps[0].priceUsd,'vol24h',v(ps[0]));setPrice(+ps[0].priceUsd,ps[0].priceChange&&ps[0].priceChange.h24);return}
     console.warn('[eva] dexscreener: nenhum par válido');
   }catch(e){console.warn('[eva] dexscreener falhou',e)}
   try{
