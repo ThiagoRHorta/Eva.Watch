@@ -84,16 +84,21 @@ function buildText(){
 }
 function setPrice(p){if(!(p>0))return;priceStr='$'+(p>=1?p.toFixed(2):p.toPrecision(3));buildText()}
 async function getPrice(){
+  const lo=EVA.toLowerCase(),v=p=>(p.volume&&p.volume.h24)||0,L=p=>(p.liquidity&&p.liquidity.usd)||0;
   try{
-    const j=await (await fetch('https://api.dexscreener.com/latest/dex/tokens/'+EVA)).json();
-    const ps=(j.pairs||[]).filter(p=>p.chainId==='arbitrum'&&p.baseToken&&p.baseToken.address.toLowerCase()===EVA.toLowerCase()&&p.priceUsd)
-      .sort((a,b)=>((b.liquidity&&b.liquidity.usd)||0)-((a.liquidity&&a.liquidity.usd)||0));
-    if(ps[0]){setPrice(+ps[0].priceUsd);return}
-  }catch(e){}
+    const r=await fetch('https://api.dexscreener.com/tokens/v1/arbitrum/'+EVA,{cache:'no-store'});
+    const j=await r.json();
+    // pega o par com mais volume nas últimas 24h (desempate por liquidez), evitando pools parados
+    const ps=(Array.isArray(j)?j:[]).filter(p=>p.baseToken&&p.baseToken.address.toLowerCase()===lo&&+p.priceUsd>0)
+      .sort((a,b)=>(v(b)-v(a))||(L(b)-L(a)));
+    if(ps[0]){console.log('[eva] par:',ps[0].dexId,ps[0].pairAddress,'preço',ps[0].priceUsd,'vol24h',v(ps[0]));setPrice(+ps[0].priceUsd);return}
+    console.warn('[eva] dexscreener: nenhum par válido');
+  }catch(e){console.warn('[eva] dexscreener falhou',e)}
   try{
-    const j=await (await fetch('https://api.geckoterminal.com/api/v2/simple/networks/arbitrum/token_price/'+EVA)).json();
-    setPrice(+j.data.attributes.token_prices[EVA.toLowerCase()]);
-  }catch(e){}
+    const r=await fetch('https://api.geckoterminal.com/api/v2/simple/networks/arbitrum/token_price/'+EVA,{cache:'no-store'});
+    const j=await r.json();
+    setPrice(+j.data.attributes.token_prices[lo]);
+  }catch(e){console.warn('[eva] gecko falhou',e)}
 }
 addEventListener('keydown',e=>{if(e.key==='p'||e.key==='P'){pMode=pMode==='under'?'corner':'under';buildText()}});
 function resize(){
@@ -144,15 +149,20 @@ calcSleepy();setInterval(calcSleepy,60000);
 function setAway(a){if(a)away=true;else if(away){away=false;wake=1;closed=Math.max(closed,0.9)}}
 addEventListener('blur',()=>setAway(true));addEventListener('focus',()=>setAway(false));
 document.addEventListener('visibilitychange',()=>{if(document.hidden){away=true;closed=1}else setAway(false)});
+let tiltPending=false;
 function tiltInit(){
-  if(tiltOn)return;
+  if(tiltOn||tiltPending)return;
   const go=()=>{tiltOn=true;addEventListener('deviceorientation',e=>{if(e.gamma==null)return;lastMove=performance.now();
     tx=cl(e.gamma/30*0.5,-0.5,0.5);ty=cl(((e.beta||45)-45)/30*0.14,-0.14,0.14)})};
-  if(window.DeviceOrientationEvent&&typeof DeviceOrientationEvent.requestPermission==='function')
-    DeviceOrientationEvent.requestPermission().then(r=>{if(r==='granted')go()}).catch(()=>{});
-  else go();
+  const D=window.DeviceOrientationEvent;
+  if(D&&typeof D.requestPermission==='function'){
+    // iOS: tenta já na abertura (funciona se a permissão já foi dada); senão o 1º toque repete o pedido
+    tiltPending=true;
+    D.requestPermission().then(r=>{tiltPending=false;if(r==='granted')go()}).catch(()=>{tiltPending=false});
+  }else go(); // Android e demais: sem permissão, liga direto
 }
-addEventListener('pointerdown',tiltInit);
+tiltInit(); // ativa logo ao abrir o site
+['pointerdown','touchend','click'].forEach(ev=>addEventListener(ev,tiltInit,{passive:true}));
 
 function update(t){
   if(performance.now()-lastMove>5000){tx=0.3*Math.sin(t*0.31)+0.12*Math.sin(t*0.9);ty=0.05*Math.sin(t*0.23+1)}
