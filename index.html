@@ -1,5 +1,10 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><title>EVA.WATCH</title>
+<html lang="en"><head><meta charset="utf-8"><title>$EVA &#9673; always watching</title>
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="512x512" href="favicon-512.png">
+<link rel="apple-touch-icon" href="favicon-180.png">
+<meta name="theme-color" content="#000000">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>
 html,body{margin:0;height:100%;background:#000;overflow:hidden;cursor:none}
@@ -158,6 +163,7 @@ function setPrice(p,chg){
   chg=(chg==null||chg==='')?NaN:+chg;
   if(Number.isFinite(chg)){const a=Math.abs(chg);chgDir=a<0.005?0:chg>0?1:-1;chgStr=a.toFixed(a<10?2:1)+'%'}else{chgStr='';chgDir=0}
   setTint(chg);
+  document.title='$EVA \u25C9 '+priceStr+(chgStr?' '+(chgDir>0?'\u25B2':chgDir<0?'\u25BC':'')+chgStr:'');
   buildText();
 }
 function netState(){ // OFFLINE só depois de 2 falhas seguidas (ou sem rede); o preço escurece enquanto isso
