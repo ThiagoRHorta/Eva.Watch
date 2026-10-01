@@ -59,7 +59,7 @@ function buildText(){
   if(tAtw!==t2){tAtw=t2;tAtlas=document.createElement('canvas');tAtlas.width=t2*TC.length;tAtlas.height=h2;
     const a=tAtlas.getContext('2d');a.fillStyle='#ecece8';a.textAlign='center';a.textBaseline='middle';a.font='bold '+(h2*0.95)+'px '+FF;
     TC.forEach((ch,k)=>a.fillText(ch,k*t2+t2/2,h2/2+h2*0.04))}
-  const c2=Math.ceil(cv.width/t2),r2=Math.ceil(cv.height/h2),Sc=S/t2;
+  const c2=Math.ceil(cv.width/t2),r2=Math.ceil(cv.height/h2),Sc=S/t2,compact=W<H*0.9; // compact = celular em pé
   const m=document.createElement('canvas');m.width=c2;m.height=r2;
   const g=m.getContext('2d',{willReadFrequently:true});g.scale(1,1/1.75);g.textBaseline='alphabetic';
   // helpers de desenho na máscara (x em colunas; y em unidades isotrópicas, 1 linha = 1.75)
@@ -76,7 +76,24 @@ function buildText(){
     TX(chgStr,x+wA+0.3*em,y,em,a);
   };
   let x0,x1,top,bot,padX,padY,lvl,emRef=0;
-  if(pMode==='corner'){
+  if(compact){
+    // celular: 2 linhas maiores e legíveis. 1ª: EVA + preço; 2ª: ticker (esq.) e variação 24h (dir.)
+    const corner=pMode==='corner',lt=lblMode===2?'COPIED':lblMode===1?'COPY CA':'EVA/USDT';
+    lvl=corner?0.86:0.92;
+    const bud=c2*(corner?0.60:0.80),gch=0.4;
+    const e1=Math.min((corner?0.20:0.27)*Sc,bud/(0.6*(3+gch+priceStr.length)));
+    const wE=wd('EVA',e1),wP=wd(priceStr,e1),gp=gch*0.6*e1,w1=wE+gp+wP;
+    const u2=0.6*lt.length+(chgStr?1+0.6*chgStr.length:0)+1.0; // largura da 2ª linha por unidade de fonte (com folga)
+    const e2=Math.max(9,Math.min(e1*0.5,w1/u2)),gap2=0.28*e1;
+    padX=0.018*Sc;padY=0.012*S/h2;
+    const below=(gap2+0.72*e2+0.25*e2)/1.75,rowMax=r2-11-below-padY;
+    const row=corner?rowMax:Math.min((cy+0.68*S)/h2,rowMax);
+    const Y1=row*1.75,Y2=Y1+gap2+0.72*e2;
+    x1=corner?c2-16:(c2+w1)/2;x0=x1-w1;
+    TX('EVA',x0,Y1,e1,1);TX(priceStr,x0+wE+gp,Y1,e1,1);
+    TX(lt,x0,Y2,e2,0.85);if(chgStr)CH(x1-cw(e2),Y2,e2,0.85);
+    top=row-0.75*e1/1.75;bot=(Y2+0.3*e2)/1.75;emRef=e1;
+  }else if(pMode==='corner'){
     lvl=0.8;const txt='EVA  '+priceStr,n=txt.length+(chgStr?chgStr.length+3:0),em=Math.min(18,c2*0.44/(0.6*n)),row=r2-9;
     const emC=em*0.62,w=wd(txt,em),gc=0.5*em,cW=cw(emC);
     x1=c2-16;x0=x1-w-(cW?gc+cW:0);
@@ -97,7 +114,7 @@ function buildText(){
     top=row-0.75*eE/1.75;bot=row+0.3*eE/1.75;
   }
   const d1=g.getImageData(0,0,c2,r2).data;
-  if(pMode!=='corner'){ // encaixa a caixa na tinta real para o respiro de cima e de baixo ser idêntico
+  if(pMode!=='corner'||compact){ // encaixa a caixa na tinta real para o respiro de cima e de baixo ser idêntico
     let mr=1e9,Mr=-1,mc=1e9,Mc=-1;
     for(let r=Math.max(0,Math.floor(top-6));r<Math.min(r2,Math.ceil(bot+6));r++)
       for(let c=Math.max(0,Math.floor(x0-6));c<Math.min(c2,Math.ceil(x1+6));c++)
@@ -113,7 +130,7 @@ function buildText(){
   RC(fX0,fY0,lc,1,BR);RC(fX0,fY0,vw,lr,BR);RC(fX1-lc,fY0,lc,1,BR);RC(fX1-vw,fY0,vw,lr,BR);
   RC(fX0,fY1-1,lc,1,BR);RC(fX0,fY1-lr,vw,lr,BR);RC(fX1-lc,fY1-1,lc,1,BR);RC(fX1-vw,fY1-lr,vw,lr,BR);
   // --- rótulo embutido na borda de cima, à direita (nas duas caixas); em hover vira COPY CA e ao copiar COPIED ---
-  {
+  if(!compact){
     const eL=pMode==='corner'?Math.max(6,emRef*0.7):Math.max(7,0.08*Sc),cyL=(fY0+0.5)*1.75,lt=lblMode===2?'COPIED':lblMode===1?'COPY CA':'EVA/USDT',lw=wd(lt,eL);
     const lx=fX1-lc-3-lw;
     if(lx>fX0+lc+3){g.clearRect(lx-2,cyL-0.62*eL,lw+4,1.24*eL);TX(lt,lx,cyL+0.36*eL,eL,0.8)}
