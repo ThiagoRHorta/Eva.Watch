@@ -54,19 +54,24 @@ document.body.insertBefore(tc,document.querySelector('.crt'));
 const tint=document.createElement('div');tint.id='tint';document.body.insertBefore(tint,tc); // acima do olho, abaixo do preço
 const net=document.createElement('div');net.id='net';net.innerHTML='OFFLINE<i>_</i>';document.body.insertBefore(net,document.querySelector('.crt'));
 const cur=document.createElement('div');cur.id='cur';document.body.appendChild(cur);
-const tctx=tc.getContext('2d'),TC=['.',':','+','*','#','@'];let tAtlas=null,tAtw=0;
+const tctx=tc.getContext('2d'),TC=['.',':','+','*','#','@'];let tAtlas=null,tAtG=null,tAtR=null,tAtw=0;
 // estado extra do painel de preço: variação 24h
 let chgStr='',chgDir=0,fails=0,lblMode=0,boxR=null,hot=false,curT=0,lblT=0; // lblMode: 0 EVA/USD, 1 COPY CA (hover), 2 COPIED
 function buildText(){
   if(!N)return;
   tc.width=cv.width;tc.height=cv.height;
   const t2=Math.max(2,Math.round(Math.max(W/340,4)*dpr*0.5)),h2=Math.round(t2*1.75);
-  if(tAtw!==t2){tAtw=t2;tAtlas=document.createElement('canvas');tAtlas.width=t2*TC.length;tAtlas.height=h2;
-    const a=tAtlas.getContext('2d');a.fillStyle='#ecece8';a.textAlign='center';a.textBaseline='middle';a.font='bold '+(h2*0.95)+'px '+FF;
-    TC.forEach((ch,k)=>a.fillText(ch,k*t2+t2/2,h2/2+h2*0.04))}
+  if(tAtw!==t2){tAtw=t2;
+    const mk=col=>{const c3=document.createElement('canvas');c3.width=t2*TC.length;c3.height=h2;
+      const a=c3.getContext('2d');a.fillStyle=col;a.textAlign='center';a.textBaseline='middle';a.font='bold '+(h2*0.95)+'px '+FF;
+      TC.forEach((ch,k)=>a.fillText(ch,k*t2+t2/2,h2/2+h2*0.04));return c3};
+    tAtlas=mk('#ecece8');tAtG=mk('#4ade80');tAtR=mk('#ff5a66')} // branco / verde / vermelho
   const c2=Math.ceil(cv.width/t2),r2=Math.ceil(cv.height/h2),Sc=S/t2,compact=W<H*0.9; // compact = celular em pé
   const m=document.createElement('canvas');m.width=c2;m.height=r2;
   const g=m.getContext('2d',{willReadFrequently:true});g.scale(1,1/1.75);g.textBaseline='alphabetic';
+  // máscara colorida só para os ícones (verde = check, vermelho = X)
+  const mC=document.createElement('canvas');mC.width=c2;mC.height=r2;
+  const gC=mC.getContext('2d',{willReadFrequently:true});gC.scale(1,1/1.75);
   // helpers de desenho na máscara (x em colunas; y em unidades isotrópicas, 1 linha = 1.75)
   const FS=a=>{g.fillStyle='rgba(255,255,255,'+a+')'};
   const TX=(s,x,y,em,a)=>{FS(a);g.font='bold '+em+'px '+FF;g.fillText(s,x,y)};
@@ -81,6 +86,7 @@ function buildText(){
     TX(chgStr,x+wA+0.3*em,y,em,a);
   };
   let x0,x1,top,bot,padX,padY,lvl,emRef=0;
+  const layoutPrice=RES=>{ // RES = linhas reservadas embaixo para o painel Core/Boost
   if(compact){
     // celular: 2 linhas maiores e legíveis. 1ª: EVA + preço; 2ª: ticker (esq.) e variação 24h (dir.)
     const corner=pMode==='corner',lt=lblMode===2?'COPIED':lblMode===1?'COPY CA':'EVA/USDT';
@@ -91,7 +97,7 @@ function buildText(){
     const u2=0.6*lt.length+(chgStr?1+0.6*chgStr.length:0)+1.0; // largura da 2ª linha por unidade de fonte (com folga)
     const e2=Math.max(9,Math.min(e1*0.5,w1/u2)),gap2=0.28*e1;
     padX=0.018*Sc;padY=0.012*S/h2;
-    const below=(gap2+0.72*e2+0.25*e2)/1.75,rowMax=r2-11-below-padY;
+    const below=(gap2+0.72*e2+0.25*e2)/1.75,rowMax=r2-11-below-padY-RES;
     const row=corner?rowMax:Math.min((cy+0.68*S)/h2,rowMax);
     const Y1=row*1.75,Y2=Y1+gap2+0.72*e2;
     x1=corner?c2-16:(c2+w1)/2;x0=x1-w1;
@@ -99,7 +105,7 @@ function buildText(){
     TX(lt,x0,Y2,e2,0.85);if(chgStr)CH(x1-cw(e2),Y2,e2,0.85);
     top=row-0.75*e1/1.75;bot=(Y2+0.3*e2)/1.75;emRef=e1;
   }else if(pMode==='corner'){
-    lvl=0.8;const txt='EVA  '+priceStr,n=txt.length+(chgStr?chgStr.length+3:0),em=Math.min(18,c2*0.44/(0.6*n)),row=r2-9;
+    lvl=0.8;const txt='EVA  '+priceStr,n=txt.length+(chgStr?chgStr.length+3:0),em=Math.min(18,c2*0.44/(0.6*n)),row=r2-12-RES;
     const emC=em*0.62,w=wd(txt,em),gc=0.5*em,cW=cw(emC);
     x1=c2-16;x0=x1-w-(cW?gc+cW:0);
     emRef=em;TX(txt,x0,row*1.75,em,1);if(chgStr)CH(x0+w+gc,row*1.75,emC,0.78);
@@ -108,16 +114,25 @@ function buildText(){
     lvl=0.92;let eE=0.30*Sc,eP=0.17*Sc,eC=0.085*Sc;
     const gap=0.08*Sc,gc=0.05*Sc;
     const tot=wd('EVA',eE)+gap+wd(priceStr,eP)+(chgStr?gc+cw(eC):0);
-    const k=Math.min(1,c2*0.80/tot);eE*=k;eP*=k;eC*=k;
+    const k=Math.min(1,c2*0.80/tot);eE*=k;eP*=k;eC*=k;emRef=eP;
     const wE=wd('EVA',eE),wP=wd(priceStr,eP),cW=cw(eC),gp=gap*k,gk=gc*k;
     padX=0.018*Sc;padY=0.012*S/h2;
-    const row=Math.min((cy+0.68*S)/h2,r2-9-0.3*eE/1.75-padY);
+    const row=Math.min((cy+0.68*S)/h2,r2-6-0.3*eE/1.75-padY-RES);
     const tw2=wE+gp+wP+(cW?gk+cW:0);
     x0=(c2-tw2)/2;x1=x0+tw2;
     TX('EVA',x0,row*1.75,eE,1);TX(priceStr,x0+wE+gp,row*1.75,eP,1);
     if(chgStr)CH(x0+wE+gp+wP+gk,row*1.75,eC,0.78);
     top=row-0.75*eE/1.75;bot=row+0.3*eE/1.75;
   }
+  };
+  // 1ª passada: mede a largura da caixa do preço e planeja o painel; 2ª: redesenha com o espaço reservado
+  // painel Core/Boost: mesma fonte do preço, mesma largura da caixa; tamanho da letra acompanha o texto secundário do preço
+  const NEED={row:16.9,two:9.8},HP=(m,e)=>m==='row'?1.82*e:3.14*e; // largura (em "em") e altura necessárias
+  const planFor=(bw,er)=>{const eT=(compact?0.58:pMode==='corner'?0.62:0.56)*er;return{m:!compact&&bw/NEED.row>=0.8*eT?'row':'two',eT}};
+  const panE=(m,eT,bw)=>Math.max(4,Math.min(eT,bw/NEED[m]));
+  layoutPrice(0);
+  const bw0=(x1-x0)+2*(padX+Math.max(3,Math.round(0.022*Sc))),pl=planFor(bw0,emRef),PHr=Math.ceil(HP(pl.m,panE(pl.m,pl.eT,bw0))/1.75)+1;
+  g.clearRect(0,0,c2,r2*1.75);layoutPrice(PHr+3);
   const d1=g.getImageData(0,0,c2,r2).data;
   if(pMode!=='corner'||compact){ // encaixa a caixa na tinta real para o respiro de cima e de baixo ser idêntico
     let mr=1e9,Mr=-1,mc=1e9,Mc=-1;
@@ -140,16 +155,68 @@ function buildText(){
     const lx=fX1-lc-3-lw;
     if(lx>fX0+lc+3){g.clearRect(lx-2,cyL-0.62*eL,lw+4,1.24*eL);TX(lt,lx,cyL+0.36*eL,eL,0.8)}
   }
-  const d=g.getImageData(0,0,c2,r2).data;
+  // --- painel Core/Boost: colado embaixo da caixa do preço, mesma largura, mesma moldura e a MESMA fonte (Courier bold) ---
+  // row = tudo numa linha; two = CORE e BOOST numa linha, rodapé embaixo (celular)
+  let vK=null;vRects=[];
+  {
+    const m=pl.m,xl=fX0,xr=fX1,bw=xr-xl,e=panE(m,pl.eT,bw),cap=0.6*e,pX=Math.max(3,0.55*e),xi=xl+pX,xo=xr-pX;
+    const ty0=fY1+3,ty1=Math.min(r2-1,ty0+Math.ceil(HP(m,e)/1.75)+1),Y0=ty0*1.75,HH=(ty1-ty0)*1.75;
+    const ctH=m==='row'?cap:2*cap+0.7*e,cT=Y0+(HH-ctH)/2,bl=i=>cT+cap+i*(cap+0.7*e);
+    const isz=0.7*e,gI=0.3*e,cwid=0.6*e;
+    const R2=(x,y,w,h,a)=>{FS(a);g.fillRect(x,y,w,h)};
+    const TXB=(t,x,y,em,a)=>TX(t,x,y,em,a); // mesma fonte do preço, sem contorno
+    const icon=(ok,x,b)=>{ // check verde / X vermelho, traço grosso
+      const y=b-isz;gC.lineWidth=0.17*e;gC.lineCap='butt';gC.lineJoin='miter';gC.beginPath();
+      if(ok){gC.strokeStyle='rgb(0,255,0)';gC.moveTo(x+0.04*isz,y+0.55*isz);gC.lineTo(x+0.38*isz,y+0.9*isz);gC.lineTo(x+0.98*isz,y+0.1*isz)}
+      else{gC.strokeStyle='rgb(255,0,0)';const q=0.12;gC.moveTo(x+q*isz,y+q*isz);gC.lineTo(x+(1-q)*isz,y+(1-q)*isz);gC.moveTo(x+(1-q)*isz,y+q*isz);gC.lineTo(x+q*isz,y+(1-q)*isz)}
+      gC.stroke();
+    };
+    const item=(v,x,b)=>{
+      const st=vStat(v),A=st==='OK'||st==='MISS'?1:0.95;
+      if(st==='OK')icon(true,x,b);                           // check verde = depositado
+      else if(st==='MISS')icon(false,x,b);                   // X vermelho = não encontrado
+      else{ // [ - ] branco = aguardando / observando
+        const y=b-isz,t=0.16*e,ar=0.3*e,dw=0.24*e;
+        R2(x,y,t,isz,A);R2(x,y,ar,t,A);R2(x,y+isz-t,ar,t,A);
+        R2(x+isz-t,y,t,isz,A);R2(x+isz-ar,y,ar,t,A);R2(x+isz-ar,y+isz-t,ar,t,A);
+        R2(x+(isz-dw)/2,y+(isz-t)/2,dw,t,A);
+      }
+      TXB(v.k,x+isz+gI,b,e,A);
+    };
+    const ft=vFoot(),fw=ft.length*cwid,w0=isz+gI+4*cwid,w1=isz+gI+5*cwid;
+    let pos; // [x, linha-base] de CORE, BOOST e rodapé
+    if(m==='row'){const gp=(xo-xi-w0-w1-11*cwid)/2;pos=[[xi,bl(0)],[xi+w0+gp,bl(0)],[xo-fw,bl(0)]]}
+    else pos=[[xi,bl(0)],[xo-w1,bl(0)],[(xi+xo-fw)/2,bl(1)]];
+    RC(xl,ty0,bw,1,HL);RC(xl,ty1-1,bw,1,HL);RC(xl,ty0,vw,ty1-ty0,HL);RC(xr-vw,ty0,vw,ty1-ty0,HL);
+    RC(xl,ty0,lc,1,BR);RC(xl,ty0,vw,lr,BR);RC(xr-lc,ty0,lc,1,BR);RC(xr-vw,ty0,vw,lr,BR);
+    RC(xl,ty1-1,lc,1,BR);RC(xl,ty1-lr,vw,lr,BR);RC(xr-lc,ty1-1,lc,1,BR);RC(xr-vw,ty1-lr,vw,lr,BR);
+    VAULTS.forEach((v,i)=>{
+      item(v,pos[i][0],pos[i][1]);const wi=i?w1:w0;
+      vRects.push({x:(pos[i][0]-0.3*e)*t2/dpr,y:(pos[i][1]-cap-0.3*e)/1.75*h2/dpr,w:(wi+0.6*e)*t2/dpr,h:(cap+0.6*e)/1.75*h2/dpr,url:'https://arbiscan.io/address/'+v.a});
+    });
+    TXB(ft,pos[2][0],pos[2][1],e,1);
+    vK={x0:Math.max(0,Math.floor(xl-2)),x1:Math.min(c2,Math.ceil(xr+2)),y0:Math.max(0,ty0-2),y1:Math.min(r2,ty1+1)};
+  }
+  const d=g.getImageData(0,0,c2,r2).data,dc=gC.getImageData(0,0,c2,r2).data;
   const kx0=Math.max(0,fX0-2),kx1=Math.min(c2,fX1+2),ky0=Math.max(0,fY0-2),ky1=Math.min(r2,fY1+1);
   tctx.clearRect(0,0,tc.width,tc.height);
-  tctx.fillStyle='#000';tctx.fillRect(kx0*t2,ky0*h2,(kx1-kx0)*t2,(ky1-ky0)*h2);
-  tctx.globalAlpha=lvl;
-  for(let r=ky0;r<ky1;r++)for(let c=kx0;c<kx1;c++){
-    const a=d[(r*c2+c)*4+3]/255;if(a<0.12)continue;
-    tctx.drawImage(tAtlas,Math.min(5,(a*6)|0)*t2,0,t2,h2,c*t2,r*h2,t2,h2);
-  }
-  tctx.globalAlpha=1;
+  const paint=(x0,x1,y0,y1,lv)=>{ // caixa preta + caracteres finos de uma região da máscara
+    tctx.globalAlpha=1;tctx.fillStyle='#000';tctx.fillRect(x0*t2,y0*h2,(x1-x0)*t2,(y1-y0)*h2);
+    tctx.globalAlpha=lv;
+    for(let r=y0;r<y1;r++)for(let c=x0;c<x1;c++){
+      const a=d[(r*c2+c)*4+3]/255;if(a<0.12)continue;
+      tctx.drawImage(tAtlas,Math.min(5,(a*6)|0)*t2,0,t2,h2,c*t2,r*h2,t2,h2);
+    }
+    tctx.globalAlpha=1;
+  };
+  const paintC=(x0,x1,y0,y1)=>{ // ícones coloridos por cima da caixa preta
+    tctx.globalAlpha=1;
+    for(let r=y0;r<y1;r++)for(let c=x0;c<x1;c++){
+      const k=(r*c2+c)*4,a=dc[k+3]/255;if(a<0.12)continue;
+      tctx.drawImage(dc[k]>dc[k+1]?tAtR:tAtG,Math.min(5,(a*6)|0)*t2,0,t2,h2,c*t2,r*h2,t2,h2);
+    }
+  };
+  paint(kx0,kx1,ky0,ky1,lvl);if(vK){paint(vK.x0,vK.x1,vK.y0,vK.y1,1);paintC(vK.x0,vK.x1,vK.y0,vK.y1)}
   boxR={x:fX0*t2/dpr,y:fY0*h2/dpr,w:(fX1-fX0)*t2/dpr,h:(fY1-fY0)*h2/dpr}; // área clicável (px CSS)
 }
 function setTint(x){ // x = variação % de 24h (a mesma da caixa); cor só pelo sinal, qualquer tamanho de variação
@@ -166,6 +233,96 @@ function setPrice(p,chg){
   document.title='$EVA \u25C9 '+priceStr+(chgStr?' '+(chgDir>0?'\u25B2':chgDir<0?'\u25BC':'')+chgStr:'');
   buildText();
 }
+// === cofres Core e Boost: checagem dos depósitos de HOJE (dia UTC) direto da Arbitrum, sem chave de API ===
+// O Payer Contract deposita nos dois cofres, na mesma transação, todo dia às 20:00 UTC (wBTC = ERC-20, evento Transfer).
+//VAULT-DATA-START
+const VF={};'A:01110,10001,10001,11111,10001,10001,10001;B:11110,10001,10001,11110,10001,10001,11110;C:01110,10001,10000,10000,10000,10001,01110;D:11110,10001,10001,10001,10001,10001,11110;E:11111,10000,10000,11110,10000,10000,11111;F:11111,10000,10000,11110,10000,10000,10000;G:01110,10001,10000,10111,10001,10001,01111;H:10001,10001,10001,11111,10001,10001,10001;I:01110,00100,00100,00100,00100,00100,01110;M:10001,11011,10101,10101,10001,10001,10001;N:10001,11001,10101,10011,10001,10001,10001;O:01110,10001,10001,10001,10001,10001,01110;P:11110,10001,10001,11110,10000,10000,10000;R:11110,10001,10001,11110,10100,10010,10001;S:01111,10000,10000,01110,00001,00001,11110;T:11111,00100,00100,00100,00100,00100,00100;U:10001,10001,10001,10001,10001,10001,01110;W:10001,10001,10001,10101,10101,11011,10001;X:10001,10001,01010,00100,01010,10001,10001;Y:10001,10001,01010,00100,00100,00100,00100;0:01110,10001,10011,10101,11001,10001,01110;1:00100,01100,00100,00100,00100,00100,01110;2:01110,10001,00001,00010,00100,01000,11111;3:11110,00001,00001,01110,00001,00001,11110;4:00010,00110,01010,10010,11111,00010,00010;5:11111,10000,11110,00001,00001,10001,01110;6:00110,01000,10000,11110,10001,10001,01110;7:11111,00001,00010,00100,01000,01000,01000;8:01110,10001,10001,01110,10001,10001,01110;9:01110,10001,10001,01111,00001,00010,01100;+:00000,00100,00100,11111,00100,00100,00000;.:00000,00000,00000,00000,00000,01100,01100;/:00001,00010,00010,00100,01000,01000,10000'.split(';').forEach(e=>{VF[e[0]]=e.slice(2).split(',')});
+const WBTC='0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f',TRANSFER='0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+const VAULTS=[
+  {k:'CORE',a:'0xA89d65deF0A001947d8D5fDda93F9C4f8453902e',day:0,n:0,amt:0,t:0,err:false},
+  {k:'BOOST',a:'0x8FAE092a9Bbc7E4036C8c815c821E450A3E359F8',day:0,n:0,amt:0,t:0,err:false}];
+const RPCS=['https://arb1.arbitrum.io/rpc','https://arbitrum-one-rpc.publicnode.com','https://1rpc.io/arb'];
+const VST={OK:'',WAIT:'WAIT',MISS:'MISS',ERR:'N/A',CHK:''};
+let vRects=[];
+const utcDay=()=>Math.floor(Date.now()/86400000)*86400;
+const hx=n=>'0x'+n.toString(16),pad32=a=>'0x'+a.slice(2).toLowerCase().padStart(64,'0');
+const sigL=()=>window.AbortSignal&&AbortSignal.timeout?AbortSignal.timeout(20000):undefined;
+async function rpcCall(url,method,params){
+  const r=await fetch(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params}),signal:sigL()});
+  const j=await r.json();if(j.error)throw new Error(j.error.message||'rpc');return j.result;
+}
+async function viaRpc(url,d0){ // todos os Transfer de wBTC com destino aos dois cofres desde 00:00 UTC (um getLogs; divide o intervalo se o nó recusar)
+  let calls=0;const call=(m,p)=>{if(++calls>40)throw new Error('budget');return rpcCall(url,m,p)};
+  const bn=parseInt(await call('eth_blockNumber',[]),16);
+  const hd=await call('eth_getBlockByNumber',[hx(bn),false]),ts=parseInt(hd.timestamp,16);
+  const from=Math.max(0,bn-Math.ceil(Math.max(0,ts-d0)*4)-4000); // Arbitrum: no máximo ~4 blocos/s, + folga
+  const topics=[TRANSFER,null,VAULTS.map(v=>pad32(v.a))];
+  const get=async(a,b)=>{
+    try{return await call('eth_getLogs',[{fromBlock:hx(a),toBlock:hx(b),address:WBTC,topics}])}
+    catch(e){if(b-a<15000||e.message==='budget')throw e;const m=a+Math.floor((b-a)/2);return (await get(a,m)).concat(await get(m+1,b))}
+  };
+  const logs=await get(from,bn),bt={},out={};
+  for(const l of logs){
+    let t=l.blockTimestamp?parseInt(l.blockTimestamp,16):bt[l.blockNumber];
+    if(!t){t=parseInt((await call('eth_getBlockByNumber',[l.blockNumber,false])).timestamp,16);bt[l.blockNumber]=t}
+    if(t<d0)continue;
+    const to='0x'+l.topics[2].slice(26).toLowerCase(),o=out[to]||(out[to]={n:0,sats:0,t:0});
+    o.n++;o.sats+=Number(BigInt(l.data));if(t>o.t)o.t=t;
+  }
+  return out;
+}
+async function viaBlockscout(d0){ // plano B se todos os RPCs falharem
+  const out={},wl=WBTC.toLowerCase();
+  for(const v of VAULTS){
+    const r=await fetch('https://arbitrum.blockscout.com/api/v2/addresses/'+v.a+'/token-transfers?type=ERC-20&filter=to&token='+WBTC,{cache:'no-store',signal:sigL()});
+    const j=await r.json(),o=out[v.a.toLowerCase()]={n:0,sats:0,t:0};
+    for(const it of (j.items||[])){
+      const t=Date.parse(it.timestamp)/1000;if(!(t>=d0))continue;
+      const ta=it.token&&(it.token.address_hash||it.token.address);if(ta&&ta.toLowerCase()!==wl)continue;
+      if(it.to&&it.to.hash&&it.to.hash.toLowerCase()!==v.a.toLowerCase())continue;
+      o.n++;o.sats+=Number((it.total&&it.total.value)||0);if(t>o.t)o.t=t;
+    }
+  }
+  return out;
+}
+async function checkVaults(){
+  const d0=utcDay();let res=null;
+  for(const u of RPCS){try{res=await viaRpc(u,d0);break}catch(e){console.warn('[vault] rpc falhou',u,e&&e.message)}}
+  if(!res){try{res=await viaBlockscout(d0)}catch(e){console.warn('[vault] blockscout falhou',e)}}
+  for(const v of VAULTS){
+    if(res){const r=res[v.a.toLowerCase()]||{n:0,sats:0,t:0};v.day=d0;v.n=r.n;v.amt=r.sats/1e8;v.t=r.t;v.err=false}
+    else v.err=true;
+  }
+  buildText();
+}
+function vStat(v){ // OK = entrou wBTC hoje; WAIT = ainda dentro da janela das 20:00 UTC (+30 min); MISS = passou da janela sem depósito
+  const now=Date.now()/1000,d0=utcDay();
+  if(v.day===d0&&v.n>0)return'OK';
+  if(v.err)return'ERR';
+  if(v.day!==d0)return'CHK';
+  return now<d0+20.5*3600?'WAIT':'MISS';
+}
+function vFoot(){ // uma linha curta e legível
+  const now=Date.now()/1000,d0=utcDay(),tg=d0+72000,st=VAULTS.map(vStat);
+  if(st.includes('MISS'))return'NOT FOUND';
+  if(st.includes('WAIT')){
+    if(now>=tg)return'DUE NOW';
+    const m=Math.ceil((tg-now)/60);return Math.floor(m/60)+'h '+String(m%60).padStart(2,'0')+'m';
+  }
+  if(st.includes('ERR'))return'NO DATA';
+  if(st.includes('CHK'))return'WATCHING...';
+  return'+'+VAULTS.reduce((a,v)=>a+v.amt,0).toFixed(4)+' BTC';
+}
+//VAULT-DATA-END
+async function vaultLoop(){ // reconsulta mais seguido perto das 20:00 UTC ou enquanto faltar depósito; senão, espaçado (poupa os RPCs públicos)
+  if(!document.hidden){try{await checkVaults()}catch(e){console.warn('[vault]',e)}}
+  const d0=utcDay(),now=Date.now()/1000,all=VAULTS.every(v=>v.day===d0&&v.n>0);
+  const near=now>=d0+19.8*3600&&now<d0+21*3600;
+  setTimeout(vaultLoop,all?900000:(near||VAULTS.some(v=>v.err))?90000:600000);
+}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkVaults().catch(()=>{})});
+setInterval(()=>{if(N)buildText()},60000); // atualiza a contagem regressiva do rodapé
+const vaultAt=(x,y)=>vRects.find(r=>x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h);
 function netState(){ // OFFLINE só depois de 2 falhas seguidas (ou sem rede); o preço escurece enquanto isso
   const off=fails>=2||navigator.onLine===false;
   net.classList.toggle('on',off);tc.style.opacity=off?0.4:1;
@@ -198,7 +355,7 @@ addEventListener('pointermove',e=>{
   if(e.pointerType!=='mouse')return;
   cur.style.transform='translate('+e.clientX+'px,'+e.clientY+'px)';cur.classList.add('show');
   clearTimeout(curT);curT=setTimeout(()=>{cur.classList.remove('show','hot');hot=false;if(lblMode===1)setLbl(0)},2500);
-  const h=inBox(e.clientX,e.clientY);cur.classList.toggle('hot',h);
+  const h=inBox(e.clientX,e.clientY);cur.classList.toggle('hot',h||!!vaultAt(e.clientX,e.clientY));
   if(h!==hot){hot=h;if(lblMode!==2)setLbl(h?1:0)}
 });
 document.documentElement.addEventListener('mouseleave',()=>{cur.classList.remove('show','hot');hot=false;if(lblMode===1)setLbl(0)});
@@ -208,14 +365,16 @@ function copyCA(){
     try{if(document.execCommand('copy'))done()}catch(_){}t.remove()};
   try{navigator.clipboard.writeText(EVA).then(done,fb)}catch(e){fb()}
 }
-addEventListener('click',e=>{if(inBox(e.clientX,e.clientY))copyCA()});
-addEventListener('keydown',e=>{if(e.key==='p'||e.key==='P'){pMode=pMode==='under'?'corner':'under';buildText()}});
-function resize(){
+addEventListener('click',e=>{const vh=vaultAt(e.clientX,e.clientY);if(vh)window.open(vh.url,'_blank','noopener');else if(inBox(e.clientX,e.clientY))copyCA()});
+addEventListener('keydown',e=>{if(e.key==='p'||e.key==='P'){pMode=pMode==='under'?'corner':'under';resize()}});
+let eyeK=1,cyOv=null,fitN=0; // ajuste automático: olho nunca fica por baixo da caixa do preço
+function resize(auto){
+  if(auto!==true){eyeK=1;cyOv=null;fitN=0}
   dpr=Math.min(window.devicePixelRatio||1,2);W=innerWidth;H=innerHeight;
   cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);
   tw=Math.max(3,Math.round(Math.max(W/340,4)*q*dpr));th=Math.round(tw*1.75);
   cols=Math.ceil(cv.width/tw);rows=Math.ceil(cv.height/th);N=cols*rows;
-  S=(W<H*0.9?W*0.45:Math.min(W*0.34,H*0.78))*sc*dpr;cx=cv.width/2;cy=cv.height/2;
+  S=(W<H*0.9?W*0.45:Math.min(W*0.34,H*0.78))*sc*dpr*eyeK;cx=cv.width/2;cy=cyOv!=null?cyOv:cv.height*(W>=H*0.9&&pMode==='under'?0.44:0.5);
   // glyph atlas: one row per alpha level, so no globalAlpha changes at draw time
   const all=G.join('');atlas=document.createElement('canvas');atlas.width=tw*all.length;atlas.height=th*NA;
   const a=atlas.getContext('2d');a.textAlign='center';a.textBaseline='middle';
@@ -242,8 +401,17 @@ function resize(){
     if(VIG[i]<0.02){ST[i]=1;STV[i]=0}else if(1-X[i]*X[i]<=0){ST[i]=1;STV[i]=lum(i,0)}
   }
   buildText();
+  if(fitEye())resize(true);
 }
-addEventListener('resize',resize);
+function fitEye(){ // se a caixa do preço invade o olho: sobe o olho; se não houver espaço em cima, diminui tudo
+  if(W<H*0.9||pMode!=='under'||!boxR||fitN>=6)return false;
+  const mar=0.03*cv.height,ov=(cy+0.30*S)-(boxR.y*dpr-0.03*S);
+  if(ov<=1)return false;
+  fitN++;
+  if(cy-ov-0.45*S>=mar)cyOv=cy-ov;else{eyeK*=0.9;cyOv=null}
+  return true;
+}
+addEventListener('resize',()=>resize());
 addEventListener('keydown',e=>{if(e.key==='-'||e.key==='+'||e.key==='='||e.key==='0'){sc=e.key==='0'?1:cl(sc*(e.key==='-'?0.92:1.08),0.4,1.6);try{localStorage.setItem('evaScale',sc)}catch(_){}resize()}});
 
 let tx=0,ty=0,ix=0,iy=0,lastMove=-1e9,open=1,bo=1,bDur=0.34,closed=0,wake=0,away=false,pd=0,thm=1,blinkAt=2,bStart=-1,bDbl=false,sacX=0,sacY=0,nextSac=1;
@@ -387,5 +555,5 @@ function frame(ms){
   ema=ema*0.9+(performance.now()-t0)*0.1;
   if(++frameN>40&&ema>20&&q<2.2){q*=1.18;resize();ema=0;frameN=0}
 }
-resize();getPrice();setInterval(getPrice,60000);requestAnimationFrame(frame);
+resize();getPrice();setInterval(getPrice,60000);vaultLoop();requestAnimationFrame(frame);
 </script></body></html>
